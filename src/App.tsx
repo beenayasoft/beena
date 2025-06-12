@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { MainLayout } from "@/layouts/MainLayout";
+import Auth from "@/pages/Auth";
 import Index from "@/pages/Dashboard";
 import Devis from "@/pages/Devis";
 import PlaceholderPage from "@/pages/PlaceholderPage";
@@ -23,6 +24,10 @@ export default function App() {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <BrowserRouter>
         <Routes>
+          {/* Auth routes */}
+          <Route path="/auth" element={<Auth />} />
+
+          {/* Main app routes */}
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Index />} />
             <Route path="devis" element={<Devis />} />
@@ -49,16 +54,6 @@ export default function App() {
               }
             />
             <Route
-              path="factures"
-              element={
-                <PlaceholderPage
-                  title="Factures"
-                  description="Gérez vos factures clients et suivez les paiements"
-                  icon={Receipt}
-                />
-              }
-            />
-            <Route
               path="clients"
               element={
                 <PlaceholderPage
@@ -69,82 +64,12 @@ export default function App() {
               }
             />
             <Route
-              path="bibliotheque"
+              path="settings"
               element={
                 <PlaceholderPage
-                  title="Bibliothèque"
-                  description="Accédez à vos documents et modèles"
-                  icon={BookOpen}
-                />
-              }
-            />
-            <Route
-              path="bons-commande"
-              element={
-                <PlaceholderPage
-                  title="Bons de commande"
-                  description="Gérez vos commandes fournisseurs"
-                  icon={ShoppingCart}
-                />
-              }
-            />
-            <Route
-              path="factures-achats"
-              element={
-                <PlaceholderPage
-                  title="Factures d'achats"
-                  description="Suivez vos factures fournisseurs"
-                  icon={Receipt}
-                />
-              }
-            />
-            <Route
-              path="fournisseurs"
-              element={
-                <PlaceholderPage
-                  title="Fournisseurs"
-                  description="Gérez vos relations fournisseurs"
-                  icon={Users}
-                />
-              }
-            />
-            <Route
-              path="transactions"
-              element={
-                <PlaceholderPage
-                  title="Transactions"
-                  description="Suivez vos mouvements financiers"
-                  icon={CreditCard}
-                />
-              }
-            />
-            <Route
-              path="reglages"
-              element={
-                <PlaceholderPage
-                  title="Réglages"
+                  title="Paramètres"
                   description="Configurez votre application"
                   icon={Settings}
-                />
-              }
-            />
-            <Route
-              path="parrainage"
-              element={
-                <PlaceholderPage
-                  title="Parrainage"
-                  description="Parrainez vos contacts et gagnez des récompenses"
-                  icon={Heart}
-                />
-              }
-            />
-            <Route
-              path="aide"
-              element={
-                <PlaceholderPage
-                  title="Besoin d'aide ?"
-                  description="Trouvez des réponses à vos questions"
-                  icon={HelpCircle}
                 />
               }
             />

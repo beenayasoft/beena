@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
-import { Sidebar } from "@/components/navigation/Sidebar";
-import { Header } from "@/components/navigation/Header";
+import { SimpleSidebar } from "@/components/navigation/SimpleSidebar";
+import { SimpleHeader } from "@/components/navigation/SimpleHeader";
 import { cn } from "@/lib/utils";
 
 interface MainLayoutProps {
@@ -9,31 +9,19 @@ interface MainLayoutProps {
 
 export function MainLayout({ className }: MainLayoutProps) {
   return (
-    <div
-      className={cn(
-        "min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950",
-        className,
-      )}
-    >
-      {/* Background Effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-r from-pink-400 to-red-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-1/2 w-80 h-80 bg-gradient-to-r from-yellow-400 to-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
+    <div className={cn("min-h-screen bg-white dark:bg-neutral-950", className)}>
       {/* Main Layout */}
-      <div className="relative flex h-screen">
+      <div className="flex h-screen">
         {/* Sidebar */}
-        <Sidebar />
+        <SimpleSidebar />
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <Header />
+          <SimpleHeader />
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto bg-neutral-50 dark:bg-neutral-900">
             <div className="h-full">
               <Outlet />
             </div>
