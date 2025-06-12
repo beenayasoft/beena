@@ -79,75 +79,158 @@
 }
 
 @layer components {
+  /* Glass Morphism Components */
+  .glass-card {
+    @apply backdrop-blur-xl bg-white/60 dark:bg-slate-900/60 border border-white/20 dark:border-slate-700/50 shadow-lg shadow-slate-500/5 dark:shadow-slate-900/20;
+  }
+
+  .glass-button {
+    @apply backdrop-blur-sm bg-white/60 dark:bg-slate-800/60 border border-white/20 dark:border-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-800/80;
+  }
+
+  /* Neo Design Components */
   .neo-card {
-    @apply bg-white dark:bg-neo-gray-800 border border-neo-gray-200 dark:border-neo-gray-700 rounded-xl shadow-sm;
+    @apply relative overflow-hidden rounded-2xl p-6 glass-card transition-all duration-300 hover:scale-[1.02] hover:shadow-xl;
   }
 
   .neo-button {
-    @apply inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
   }
 
   .neo-button-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm;
+    @apply bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30;
   }
 
   .neo-button-secondary {
-    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-input shadow-sm;
+    @apply glass-button text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white;
   }
 
   .neo-input {
-    @apply flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply flex h-10 w-full rounded-lg glass-button px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
-  .sidebar-item {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground;
+  /* Animations */
+  .animate-blob {
+    animation: blob 7s infinite;
   }
 
-  .sidebar-item.active {
-    @apply bg-accent text-accent-foreground;
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
   }
 
-  .metric-card {
-    @apply neo-card p-6 space-y-2;
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
   }
 
-  .metric-value {
-    @apply text-2xl font-bold tracking-tight;
-  }
-
-  .metric-label {
-    @apply text-sm text-muted-foreground;
-  }
-
+  /* Modern Table */
   .neo-table {
     @apply w-full border-collapse border-spacing-0;
   }
 
   .neo-table th {
-    @apply border-b border-neo-gray-200 dark:border-neo-gray-700 py-3 px-4 text-left text-sm font-medium text-neo-gray-700 dark:text-neo-gray-300;
+    @apply border-b border-white/10 dark:border-slate-700/30 py-3 px-4 text-left text-sm font-medium text-slate-700 dark:text-slate-300 bg-white/30 dark:bg-slate-800/30;
   }
 
   .neo-table td {
-    @apply border-b border-neo-gray-100 dark:border-neo-gray-800 py-3 px-4 text-sm;
+    @apply border-b border-white/5 dark:border-slate-800/30 py-3 px-4 text-sm;
   }
 
+  .neo-table tr:hover td {
+    @apply bg-white/40 dark:bg-slate-800/40;
+  }
+
+  /* Modern Badges */
   .neo-badge {
-    @apply inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset;
+    @apply inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium backdrop-blur-sm;
   }
 
   .neo-badge-blue {
-    @apply bg-neo-blue-50 text-neo-blue-700 ring-neo-blue-600/20 dark:bg-neo-blue-400/10 dark:text-neo-blue-400 dark:ring-neo-blue-400/20;
-  }
-
-  .neo-badge-gray {
-    @apply bg-neo-gray-50 text-neo-gray-700 ring-neo-gray-600/20 dark:bg-neo-gray-400/10 dark:text-neo-gray-400 dark:ring-neo-gray-400/20;
+    @apply bg-blue-100/50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-700/50;
   }
 
   .neo-badge-green {
-    @apply bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-400/10 dark:text-green-400 dark:ring-green-400/20;
+    @apply bg-green-100/50 dark:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200/50 dark:border-green-700/50;
   }
 
   .neo-badge-orange {
-    @apply bg-orange-50 text-orange-700 ring-orange-600/20 dark:bg-orange-400/10 dark:text-orange-400 dark:ring-orange-400/20;
+    @apply bg-orange-100/50 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border border-orange-200/50 dark:border-orange-700/50;
+  }
+
+  .neo-badge-red {
+    @apply bg-red-100/50 dark:bg-red-900/50 text-red-700 dark:text-red-300 border border-red-200/50 dark:border-red-700/50;
+  }
+
+  .neo-badge-gray {
+    @apply bg-slate-100/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50;
+  }
+
+  /* Modern Scrollbar */
+  .neo-scrollbar::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .neo-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .neo-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300/50 dark:bg-slate-600/50 rounded-full border-2 border-transparent bg-clip-content;
+  }
+
+  .neo-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400/70 dark:bg-slate-500/70;
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
+  }
+
+  /* Modern Shadows */
+  .neo-shadow {
+    @apply shadow-lg shadow-slate-500/5 dark:shadow-slate-900/20;
+  }
+
+  .neo-shadow-lg {
+    @apply shadow-xl shadow-slate-500/10 dark:shadow-slate-900/30;
+  }
+
+  .neo-shadow-glow {
+    @apply shadow-2xl shadow-blue-500/25 dark:shadow-blue-500/40;
+  }
+}
+
+/* Animation Keyframes */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
   }
 }
