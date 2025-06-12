@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -172,7 +173,7 @@ export function SimpleSidebar() {
 
         {/* Quick Action */}
         {!isCollapsed && (
-          <div className="p-4 border-t border-neutral-200 dark:border-neutral-700 mt-auto">
+          <div className="p-4 border-t border-neutral-200 dark:border-neutral-700">
             <Button className="w-full benaya-button-primary gap-2">
               <Plus className="w-4 h-4" />
               Nouveau devis
@@ -183,13 +184,13 @@ export function SimpleSidebar() {
         {/* User Section */}
         <div
           className={cn(
-            "p-4 border-t border-neutral-200 dark:border-neutral-700",
+            "p-4 border-t border-neutral-200 dark:border-neutral-700 mt-auto",
             "bg-neutral-50 dark:bg-neutral-800/50",
           )}
         >
           <div
             className={cn(
-              "flex items-center gap-3",
+              "flex items-center gap-3 mb-3",
               isCollapsed && "justify-center",
             )}
           >
@@ -207,6 +208,20 @@ export function SimpleSidebar() {
               </div>
             )}
           </div>
+
+          {/* Auth Link */}
+          {!isCollapsed && (
+            <Link to="/auth">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 text-xs"
+              >
+                <LogOut className="w-4 h-4" />
+                Voir page de connexion
+              </Button>
+            </Link>
+          )}
         </div>
       </nav>
     </div>
