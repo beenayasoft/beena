@@ -26,17 +26,17 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#f0f9ff",
-          100: "#e0f2fe",
-          200: "#bae6fd",
-          300: "#7dd3fc",
-          400: "#38bdf8",
-          500: "#0ea5e9",
-          600: "#0284c7",
-          700: "#0369a1",
-          800: "#075985",
-          900: "#0c4a6e",
-          950: "#082f49",
+          50: "#eff6ff",
+          100: "#dbeafe",
+          200: "#bfdbfe",
+          300: "#93c5fd",
+          400: "#60a5fa",
+          500: "#3b82f6",
+          600: "#2563eb",
+          700: "#1d4ed8",
+          800: "#1e40af",
+          900: "#1e3a8a",
+          950: "#172554",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -62,51 +62,6 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Benaya brand colors
-        benaya: {
-          50: "#f0fdfa",
-          100: "#ccfbf1",
-          200: "#99f6e4",
-          300: "#5eead4",
-          400: "#2dd4bf",
-          500: "#14b8a6",
-          600: "#0d9488",
-          700: "#0f766e",
-          800: "#115e59",
-          900: "#134e4a",
-          950: "#042f2e",
-        },
-        neo: {
-          // Neo design system colors
-          gray: {
-            25: "#fcfcfd",
-            50: "#f9fafb",
-            100: "#f2f4f7",
-            200: "#eaecf0",
-            300: "#d0d5dd",
-            400: "#98a2b3",
-            500: "#667085",
-            600: "#475467",
-            700: "#344054",
-            800: "#182230",
-            900: "#101828",
-            950: "#0c111d",
-          },
-          blue: {
-            25: "#f5f8ff",
-            50: "#eff4ff",
-            100: "#d1e0ff",
-            200: "#b2ccff",
-            300: "#84adff",
-            400: "#528bff",
-            500: "#2970ff",
-            600: "#155eef",
-            700: "#004eeb",
-            800: "#0040c1",
-            900: "#00359e",
-            950: "#002266",
-          },
-        },
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
@@ -126,28 +81,16 @@ const config: Config = {
       },
       fontSize: {
         "2xs": ["0.625rem", { lineHeight: "0.75rem" }],
-        xs: ["0.75rem", { lineHeight: "1rem" }],
-        sm: ["0.875rem", { lineHeight: "1.25rem" }],
-        base: ["1rem", { lineHeight: "1.5rem" }],
-        lg: ["1.125rem", { lineHeight: "1.75rem" }],
-        xl: ["1.25rem", { lineHeight: "1.75rem" }],
-        "2xl": ["1.5rem", { lineHeight: "2rem" }],
-        "3xl": ["1.875rem", { lineHeight: "2.25rem" }],
-        "4xl": ["2.25rem", { lineHeight: "2.5rem" }],
-        "5xl": ["3rem", { lineHeight: "1" }],
-        "6xl": ["3.75rem", { lineHeight: "1" }],
-        "7xl": ["4.5rem", { lineHeight: "1" }],
-        "8xl": ["6rem", { lineHeight: "1" }],
-        "9xl": ["8rem", { lineHeight: "1" }],
       },
       boxShadow: {
-        xs: "0px 1px 2px 0px rgba(16, 24, 40, 0.05)",
-        sm: "0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06)",
-        md: "0px 4px 8px -2px rgba(16, 24, 40, 0.1), 0px 2px 4px -2px rgba(16, 24, 40, 0.06)",
-        lg: "0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03)",
-        xl: "0px 20px 24px -4px rgba(16, 24, 40, 0.08), 0px 8px 8px -4px rgba(16, 24, 40, 0.03)",
-        "2xl": "0px 24px 48px -12px rgba(16, 24, 40, 0.18)",
-        "3xl": "0px 32px 64px -12px rgba(16, 24, 40, 0.14)",
+        glass: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
+        "glass-inset": "inset 0 1px 0 0 rgba(255, 255, 255, 0.05)",
+        "inner-border": "inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)",
+        glow: "0 0 20px rgba(59, 130, 246, 0.15)",
+        "glow-lg": "0 0 40px rgba(59, 130, 246, 0.15)",
+      },
+      backdropBlur: {
+        xs: "2px",
       },
       keyframes: {
         "accordion-down": {
@@ -166,20 +109,69 @@ const config: Config = {
           from: { transform: "translateX(-100%)" },
           to: { transform: "translateX(0)" },
         },
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        blob: {
+          "0%": { transform: "translate(0px, 0px) scale(1)" },
+          "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+          "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+          "100%": { transform: "translate(0px, 0px) scale(1)" },
+        },
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { boxShadow: "0 0 20px rgba(59, 130, 246, 0.4)" },
+          "50%": { boxShadow: "0 0 40px rgba(59, 130, 246, 0.8)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
         "slide-in": "slide-in 0.3s ease-out",
+        float: "float 6s ease-in-out infinite",
+        blob: "blob 7s infinite",
+        shimmer: "shimmer 2s infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
       spacing: {
         18: "4.5rem",
         88: "22rem",
       },
+      animationDelay: {
+        "2000": "2s",
+        "4000": "4s",
+      },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    function ({ addUtilities }: any) {
+      const newUtilities = {
+        ".glass": {
+          background: "rgba(255, 255, 255, 0.1)",
+          backdropFilter: "blur(10px)",
+          border: "1px solid rgba(255, 255, 255, 0.2)",
+        },
+        ".glass-dark": {
+          background: "rgba(0, 0, 0, 0.1)",
+          backdropFilter: "blur(10px)",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+        },
+        ".animation-delay-2000": {
+          animationDelay: "2s",
+        },
+        ".animation-delay-4000": {
+          animationDelay: "4s",
+        },
+      };
+      addUtilities(newUtilities);
+    },
+  ],
 };
 
 export default config;
