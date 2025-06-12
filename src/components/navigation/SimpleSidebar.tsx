@@ -10,6 +10,10 @@ import {
   ChevronRight,
   Plus,
   LogOut,
+  Receipt,
+  Calendar,
+  Wrench,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,21 +25,44 @@ const mainNavItems = [
     icon: LayoutDashboard,
   },
   {
+    name: "Agenda",
+    href: "/agenda",
+    icon: Calendar,
+    badge: "5",
+  },
+  {
+    name: "Chantiers",
+    href: "/chantiers",
+    icon: Building,
+    badge: "8",
+  },
+  {
     name: "Devis",
     href: "/devis",
     icon: FileText,
     badge: "12",
   },
   {
+    name: "Factures",
+    href: "/factures",
+    icon: Receipt,
+    badge: "7",
+  },
+  {
+    name: "Interventions",
+    href: "/interventions",
+    icon: Wrench,
+    badge: "3",
+  },
+  {
+    name: "Stock",
+    href: "/stock",
+    icon: Package,
+  },
+  {
     name: "Clients",
     href: "/clients",
     icon: Users,
-  },
-  {
-    name: "Chantiers",
-    href: "/chantiers",
-    icon: Building,
-    badge: "3",
   },
   {
     name: "Paramètres",
@@ -122,7 +149,7 @@ export function SimpleSidebar() {
         </div>
 
         {/* Navigation Items */}
-        <div className="p-4 space-y-2">
+        <div className="p-4 space-y-1 flex-1 overflow-y-auto benaya-scrollbar">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -184,7 +211,7 @@ export function SimpleSidebar() {
         {/* User Section */}
         <div
           className={cn(
-            "p-4 border-t border-neutral-200 dark:border-neutral-700 mt-auto",
+            "p-4 border-t border-neutral-200 dark:border-neutral-700",
             "bg-neutral-50 dark:bg-neutral-800/50",
           )}
         >

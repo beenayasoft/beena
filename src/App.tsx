@@ -3,21 +3,15 @@ import { ThemeProvider } from "next-themes";
 import { MainLayout } from "@/layouts/MainLayout";
 import Auth from "@/pages/Auth";
 import Index from "@/pages/Dashboard";
+import Agenda from "@/pages/Agenda";
+import Chantiers from "@/pages/Chantiers";
 import Devis from "@/pages/Devis";
+import Factures from "@/pages/Factures";
+import Interventions from "@/pages/Interventions";
+import Stock from "@/pages/Stock";
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import NotFound from "@/pages/NotFound";
-import {
-  Calendar,
-  Building,
-  Receipt,
-  Users,
-  BookOpen,
-  ShoppingCart,
-  CreditCard,
-  Settings,
-  Heart,
-  HelpCircle,
-} from "lucide-react";
+import { Users, Settings } from "lucide-react";
 
 export default function App() {
   return (
@@ -30,29 +24,14 @@ export default function App() {
           {/* Main app routes */}
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Index />} />
+            <Route path="agenda" element={<Agenda />} />
+            <Route path="chantiers" element={<Chantiers />} />
             <Route path="devis" element={<Devis />} />
+            <Route path="factures" element={<Factures />} />
+            <Route path="interventions" element={<Interventions />} />
+            <Route path="stock" element={<Stock />} />
 
             {/* Placeholder pages */}
-            <Route
-              path="agenda"
-              element={
-                <PlaceholderPage
-                  title="Agenda"
-                  description="Planifiez et gérez vos rendez-vous et interventions"
-                  icon={Calendar}
-                />
-              }
-            />
-            <Route
-              path="chantiers"
-              element={
-                <PlaceholderPage
-                  title="Chantiers"
-                  description="Suivez l'avancement de vos projets de construction"
-                  icon={Building}
-                />
-              }
-            />
             <Route
               path="clients"
               element={
