@@ -76,22 +76,6 @@
   h6 {
     @apply font-semibold tracking-tight;
   }
-
-  .text-xs {
-    @apply text-xs leading-4;
-  }
-
-  .text-sm {
-    @apply text-sm leading-5;
-  }
-
-  .text-base {
-    @apply text-base leading-6;
-  }
-
-  .text-lg {
-    @apply text-lg leading-7;
-  }
 }
 
 @layer components {
