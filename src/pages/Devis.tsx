@@ -3,13 +3,10 @@ import {
   Plus,
   Search,
   Calendar,
-  Settings,
-  MoreHorizontal,
   Filter,
-  Download,
+  MoreHorizontal,
   Eye,
   Edit,
-  Copy,
   Trash2,
   Send,
 } from "lucide-react";
@@ -33,13 +30,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { PageHeader } from "@/components/common/PageHeader";
-import { QuotesFilters } from "@/components/quotes/QuotesFilters";
-import { QuotesStats } from "@/components/quotes/QuotesStats";
 
 const quotes = [
   {
-    id: "draft-1",
+    id: "1",
     number: "Brouillon",
     amount: "0,00 MAD",
     client: "Brouillon",
@@ -49,55 +43,32 @@ const quotes = [
     status: "draft",
   },
   {
-    id: "draft-2",
-    number: "Brouillon",
-    amount: "0,00 MAD",
-    client: "Brouillon",
-    project: "—",
-    issueDate: "—",
-    expiryDate: "—",
-    status: "draft",
-  },
-  {
-    id: "draft-3",
-    number: "Brouillon",
+    id: "2",
+    number: "DEV-2025-001",
     amount: "15,500 MAD",
     client: "Jean Dupont",
     project: "Rénovation appartement",
     issueDate: "15/06/2025",
     expiryDate: "15/07/2025",
-    status: "draft",
+    status: "sent",
   },
   {
-    id: "sent-1",
-    number: "DEV-2025-001",
+    id: "3",
+    number: "DEV-2025-002",
     amount: "25,300 MAD",
     client: "Marie Lambert",
     project: "Villa moderne",
     issueDate: "10/06/2025",
     expiryDate: "10/07/2025",
-    status: "sent",
-  },
-  {
-    id: "accepted-1",
-    number: "DEV-2025-002",
-    amount: "18,750 MAD",
-    client: "Pierre Martin",
-    project: "Extension maison",
-    issueDate: "08/06/2025",
-    expiryDate: "08/07/2025",
     status: "accepted",
   },
 ];
 
 const tabs = [
   { id: "tous", label: "Tous", count: quotes.length },
-  { id: "brouillons", label: "Brouillons", count: 3 },
-  { id: "finalises", label: "Finalisés", count: 2 },
+  { id: "brouillons", label: "Brouillons", count: 1 },
   { id: "envoyes", label: "Envoyés", count: 1 },
-  { id: "a-facturer", label: "À facturer", count: 1 },
-  { id: "factures", label: "Facturés", count: 0 },
-  { id: "perdus", label: "Perdus", count: 0 },
+  { id: "acceptes", label: "Acceptés", count: 1 },
 ];
 
 export default function Devis() {
@@ -107,233 +78,180 @@ export default function Devis() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "draft":
-        return (
-          <Badge className="neo-badge-gray">
-            <div className="w-2 h-2 bg-slate-400 rounded-full mr-2"></div>
-            Brouillon
-          </Badge>
-        );
+        return <Badge className="benaya-badge-neutral">Brouillon</Badge>;
       case "sent":
-        return (
-          <Badge className="neo-badge-blue">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-            Envoyé
-          </Badge>
-        );
+        return <Badge className="benaya-badge-primary">Envoyé</Badge>;
       case "accepted":
-        return (
-          <Badge className="neo-badge-green">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            Accepté
-          </Badge>
-        );
+        return <Badge className="benaya-badge-success">Accepté</Badge>;
       case "rejected":
-        return (
-          <Badge className="neo-badge-red">
-            <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-            Refusé
-          </Badge>
-        );
+        return <Badge className="benaya-badge-error">Refusé</Badge>;
       default:
-        return (
-          <Badge className="neo-badge-gray">
-            <div className="w-2 h-2 bg-slate-400 rounded-full mr-2"></div>—
-          </Badge>
-        );
+        return <Badge className="benaya-badge-neutral">—</Badge>;
     }
-  };
-
-  const getClientBadge = (client: string) => {
-    if (client === "Brouillon") {
-      return <Badge className="neo-badge-gray text-xs">{client}</Badge>;
-    }
-    return <Badge className="neo-badge-blue text-xs">{client}</Badge>;
   };
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-slate-50/50 via-blue-50/30 to-indigo-50/50 dark:from-slate-950/50 dark:via-blue-950/30 dark:to-indigo-950/50">
-      <div className="relative p-6 space-y-8">
-        {/* Background Effects */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 right-1/3 w-96 h-96 bg-gradient-to-r from-purple-400/10 to-pink-500/10 rounded-full filter blur-3xl"></div>
-          <div className="absolute bottom-20 left-1/3 w-96 h-96 bg-gradient-to-r from-blue-400/10 to-indigo-500/10 rounded-full filter blur-3xl"></div>
-        </div>
-
-        {/* Page Header */}
-        <div className="relative z-10">
-          <PageHeader
-            title="Devis"
-            description="Gérez vos devis et suivez leur progression"
-            primaryAction={{
-              label: "Nouveau devis",
-              icon: Plus,
-              onClick: () => console.log("Nouveau devis"),
-            }}
-            secondaryActions={[
-              {
-                label: "Paramètres",
-                icon: Settings,
-                onClick: () => console.log("Paramètres"),
-              },
-            ]}
-          />
-        </div>
-
-        {/* Stats Cards */}
-        <div className="relative z-10">
-          <QuotesStats />
-        </div>
-
-        {/* Filters */}
-        <div className="relative z-10">
-          <QuotesFilters
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-          />
-        </div>
-
-        {/* Main Content */}
-        <div className="relative z-10">
-          <div
-            className={cn(
-              "relative overflow-hidden rounded-2xl",
-              "bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl",
-              "border border-white/20 dark:border-slate-700/50",
-              "shadow-lg shadow-slate-500/5 dark:shadow-slate-900/20",
-            )}
-          >
-            {/* Tabs */}
-            <div className="p-6 border-b border-white/10 dark:border-slate-700/30">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:grid-cols-none lg:inline-flex bg-white/30 dark:bg-slate-800/30">
-                  {tabs.map((tab) => (
-                    <TabsTrigger
-                      key={tab.id}
-                      value={tab.id}
-                      className="gap-2 data-[state=active]:bg-white/60 dark:data-[state=active]:bg-slate-700/60"
-                    >
-                      {tab.label}
-                      {tab.count > 0 && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs bg-white/40 dark:bg-slate-600/40"
-                        >
-                          {tab.count}
-                        </Badge>
-                      )}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-hidden">
-              <Table className="neo-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>STATUT</TableHead>
-                    <TableHead>NUMÉRO</TableHead>
-                    <TableHead>MONTANT TTC</TableHead>
-                    <TableHead>CLIENT</TableHead>
-                    <TableHead>CHANTIER</TableHead>
-                    <TableHead>DATE D'ÉMISSION</TableHead>
-                    <TableHead>DATE D'EXPIRATION</TableHead>
-                    <TableHead className="w-[100px]">ACTIONS</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {quotes.map((quote) => (
-                    <TableRow
-                      key={quote.id}
-                      className="group hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <TableCell>{getStatusBadge(quote.status)}</TableCell>
-                      <TableCell className="font-medium">
-                        {quote.number}
-                      </TableCell>
-                      <TableCell className="font-semibold text-slate-900 dark:text-white">
-                        {quote.amount}
-                      </TableCell>
-                      <TableCell>{getClientBadge(quote.client)}</TableCell>
-                      <TableCell className="text-slate-600 dark:text-slate-400">
-                        {quote.project}
-                      </TableCell>
-                      <TableCell className="text-slate-600 dark:text-slate-400">
-                        {quote.issueDate}
-                      </TableCell>
-                      <TableCell className="text-slate-600 dark:text-slate-400">
-                        {quote.expiryDate}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity glass-button"
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="backdrop-blur-xl bg-white/90 dark:bg-slate-900/90 border-white/20 dark:border-slate-700/50"
-                          >
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Voir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Modifier
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Copy className="mr-2 h-4 w-4" />
-                              Dupliquer
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                              <Send className="mr-2 h-4 w-4" />
-                              Envoyer
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Download className="mr-2 h-4 w-4" />
-                              Télécharger
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600 dark:text-red-400">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Empty State for other tabs */}
-            {quotes.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                  <Plus className="w-8 h-8 text-slate-500 dark:text-slate-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                  Aucun devis trouvé
-                </h3>
-                <p className="text-slate-600 dark:text-slate-400 mb-6">
-                  Commencez par créer votre premier devis
-                </p>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Créer un devis
-                </Button>
-              </div>
-            )}
+    <div className="p-6 space-y-6">
+      {/* Page Header */}
+      <div className="benaya-card benaya-gradient text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Devis</h1>
+            <p className="text-benaya-100 mt-1">
+              Gérez vos devis et suivez leur progression
+            </p>
           </div>
+          <Button className="gap-2 bg-white text-benaya-900 hover:bg-white/90">
+            <Plus className="w-4 h-4" />
+            Nouveau devis
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="benaya-card text-center">
+          <div className="text-2xl font-bold text-benaya-900 dark:text-benaya-200">
+            3
+          </div>
+          <div className="text-sm text-neutral-600 dark:text-neutral-400">
+            Total devis
+          </div>
+        </div>
+        <div className="benaya-card text-center">
+          <div className="text-2xl font-bold text-neutral-900 dark:text-white">
+            1
+          </div>
+          <div className="text-sm text-neutral-600 dark:text-neutral-400">
+            En attente
+          </div>
+        </div>
+        <div className="benaya-card text-center">
+          <div className="text-2xl font-bold text-green-600">1</div>
+          <div className="text-sm text-neutral-600 dark:text-neutral-400">
+            Acceptés
+          </div>
+        </div>
+        <div className="benaya-card text-center">
+          <div className="text-2xl font-bold text-benaya-900 dark:text-benaya-200">
+            40,800
+          </div>
+          <div className="text-sm text-neutral-600 dark:text-neutral-400">
+            MAD Total
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="benaya-card">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 max-w-md">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <Input
+                placeholder="Rechercher un devis..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 benaya-input"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Calendar className="w-4 h-4" />
+              Date
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Filter className="w-4 h-4" />
+              Filtres
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table */}
+      <div className="benaya-card">
+        {/* Tabs */}
+        <div className="mb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-none lg:inline-flex">
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {tab.count}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-hidden border border-neutral-200 dark:border-neutral-700 rounded-lg">
+          <Table className="benaya-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>STATUT</TableHead>
+                <TableHead>NUMÉRO</TableHead>
+                <TableHead>MONTANT</TableHead>
+                <TableHead>CLIENT</TableHead>
+                <TableHead>PROJET</TableHead>
+                <TableHead>DATE ÉMISSION</TableHead>
+                <TableHead>DATE EXPIRATION</TableHead>
+                <TableHead className="w-[100px]">ACTIONS</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {quotes.map((quote) => (
+                <TableRow key={quote.id}>
+                  <TableCell>{getStatusBadge(quote.status)}</TableCell>
+                  <TableCell className="font-medium">{quote.number}</TableCell>
+                  <TableCell className="font-semibold">
+                    {quote.amount}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className="benaya-badge-primary text-xs">
+                      {quote.client}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{quote.project}</TableCell>
+                  <TableCell>{quote.issueDate}</TableCell>
+                  <TableCell>{quote.expiryDate}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="benaya-glass">
+                        <DropdownMenuItem>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Voir
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Send className="mr-2 h-4 w-4" />
+                          Envoyer
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-red-600">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>
