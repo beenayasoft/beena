@@ -9,9 +9,10 @@ import Devis from "@/pages/Devis";
 import Factures from "@/pages/Factures";
 import Interventions from "@/pages/Interventions";
 import Stock from "@/pages/Stock";
+import Settings from "@/pages/Settings";
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import NotFound from "@/pages/NotFound";
-import { Users, Settings } from "lucide-react";
+import { Users } from "lucide-react";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="factures" element={<Factures />} />
             <Route path="interventions" element={<Interventions />} />
             <Route path="stock" element={<Stock />} />
+            <Route path="settings" element={<Settings />} />
 
             {/* Placeholder pages */}
             <Route
@@ -39,16 +41,6 @@ export default function App() {
                   title="Clients"
                   description="Gérez votre portefeuille clients"
                   icon={Users}
-                />
-              }
-            />
-            <Route
-              path="settings"
-              element={
-                <PlaceholderPage
-                  title="Paramètres"
-                  description="Configurez votre application"
-                  icon={Settings}
                 />
               }
             />
