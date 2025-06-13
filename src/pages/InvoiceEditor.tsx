@@ -17,7 +17,8 @@ import {
   CreditCard,
   Pencil,
   Check,
-  X
+  X,
+  MoveVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,10 @@ import { Invoice, InvoiceItem, VATRate, InvoiceStatus } from "@/lib/types/invoic
 import { getInvoiceById, validateInvoice } from "@/lib/mock/invoices";
 import { initialTiers } from "@/components/tiers";
 import { formatCurrency } from "@/lib/utils";
+import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { DraggableInvoiceItem } from "@/components/invoices/DraggableInvoiceItem";
 
 export default function InvoiceEditor() {
   const { id } = useParams<{ id: string }>();
@@ -270,6 +275,30 @@ export default function InvoiceEditor() {
       totalTTC: newTotalTTC,
       remainingAmount: newTotalTTC,
     }));
+  };
+
+  // Handle drag end event for reordering items
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      setInvoice(prev => {
+        const items = prev.items || [];
+        const oldIndex = items.findIndex(item => item.id === active.id);
+        const newIndex = items.findIndex(item => item.id === over.id);
+        
+        // Update positions after reordering
+        const reorderedItems = arrayMove(items, oldIndex, newIndex).map((item, index) => ({
+          ...item,
+          position: index + 1,
+        }));
+        
+        return {
+          ...prev,
+          items: reorderedItems,
+        };
+      });
+    }
   };
 
   // Validate the form
@@ -655,64 +684,39 @@ export default function InvoiceEditor() {
               {/* Existing Items */}
               {invoice.items && invoice.items.length > 0 && (
                 <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden mb-6">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Désignation</TableHead>
-                        <TableHead>Quantité</TableHead>
-                        <TableHead>Prix unitaire</TableHead>
-                        <TableHead>TVA</TableHead>
-                        <TableHead>Total HT</TableHead>
-                        <TableHead>Total TTC</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {invoice.items.map((item) => (
-                        <TableRow key={item.id} className={item.type === 'chapter' ? "bg-neutral-50 dark:bg-neutral-800/50" : ""}>
-                          <TableCell>
-                            {item.type === 'chapter' ? (
-                              <div className="font-semibold">{item.designation}</div>
-                            ) : (
-                              <div>
-                                <div className="font-medium">{item.designation}</div>
-                                {item.description && (
-                                  <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                                    {item.description}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {item.type !== 'chapter' ? `${item.quantity} ${item.unit}` : ""}
-                          </TableCell>
-                          <TableCell>
-                            {item.type !== 'chapter' ? `${formatCurrency(item.unitPrice)} MAD` : ""}
-                          </TableCell>
-                          <TableCell>
-                            {item.type !== 'chapter' ? `${item.vatRate}%` : ""}
-                          </TableCell>
-                          <TableCell>
-                            {item.type !== 'chapter' ? `${formatCurrency(item.totalHT)} MAD` : ""}
-                          </TableCell>
-                          <TableCell className="font-semibold">
-                            {item.type !== 'chapter' ? `${formatCurrency(item.totalTTC)} MAD` : ""}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeItem(item.id)}
-                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
+                  <DndContext 
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                    modifiers={[restrictToVerticalAxis]}
+                  >
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Désignation</TableHead>
+                          <TableHead>Quantité</TableHead>
+                          <TableHead>Prix unitaire</TableHead>
+                          <TableHead>TVA</TableHead>
+                          <TableHead>Total HT</TableHead>
+                          <TableHead>Total TTC</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <SortableContext 
+                        items={invoice.items.map(item => item.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <TableBody>
+                          {invoice.items.map((item) => (
+                            <DraggableInvoiceItem 
+                              key={item.id} 
+                              item={item} 
+                              onRemove={removeItem} 
+                            />
+                          ))}
+                        </TableBody>
+                      </SortableContext>
+                    </Table>
+                  </DndContext>
                 </div>
               )}
 
