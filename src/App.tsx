@@ -9,6 +9,7 @@ import Devis from "@/pages/Devis";
 import Factures from "@/pages/Factures";
 import InvoiceDetail from "@/pages/InvoiceDetail";
 import InvoiceEditor from "@/pages/InvoiceEditor";
+import InvoicePreview from "@/pages/InvoicePreview";
 import Interventions from "@/pages/Interventions";
 import Stock from "@/pages/Stock";
 import Settings from "@/pages/Settings";
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="factures" element={<Factures />} />
             <Route path="factures/:id" element={<InvoiceDetail />} />
             <Route path="factures/edit/:id" element={<InvoiceEditor />} />
+            <Route path="factures/preview/:id" element={<InvoicePreview />} />
             <Route path="interventions" element={<Interventions />} />
             <Route path="stock" element={<Stock />} />
             <Route path="settings" element={<Settings />} />
