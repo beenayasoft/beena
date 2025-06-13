@@ -4,9 +4,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogPortal,
+  DialogOverlay,
 } from "@/components/ui/dialog";
 import { TierForm } from "./TierForm";
 import { Tier, TierFormValues } from "./types";
+import { useEffect, useState } from "react";
 
 interface TierDialogProps {
   open: boolean;
@@ -23,9 +26,15 @@ export function TierDialog({
   tier,
   isEditing = false,
 }: TierDialogProps) {
-  // Préparer les valeurs initiales si on édite un tiers existant
-  const initialValues = tier
-    ? {
+  // État local pour stocker les valeurs initiales
+  const [initialFormValues, setInitialFormValues] = useState<TierFormValues | undefined>(undefined);
+  
+  // Mettre à jour les valeurs initiales lorsque le tier change
+  useEffect(() => {
+    console.log("TierDialog useEffect - tier changed:", tier);
+    
+    if (tier && isEditing) {
+      const values = {
         name: tier.name,
         types: tier.type,
         contact: tier.contact,
@@ -34,8 +43,27 @@ export function TierDialog({
         address: tier.address,
         siret: tier.siret,
         status: tier.status as "active" | "inactive",
-      }
-    : undefined;
+      };
+      console.log("Setting initial form values:", values);
+      setInitialFormValues(values);
+    } else {
+      // Réinitialiser les valeurs pour un nouveau tier
+      setInitialFormValues(undefined);
+    }
+  }, [tier, isEditing]);
+
+  const handleSubmit = (values: TierFormValues) => {
+    onSubmit(values);
+  };
+
+  const handleCancel = () => {
+    onOpenChange(false);
+  };
+
+  // Utiliser un portail personnalisé pour éviter les problèmes d'accessibilité
+  if (!open) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,10 +78,12 @@ export function TierDialog({
               : "Remplissez les informations du tiers ci-dessous."}
           </DialogDescription>
         </DialogHeader>
+        {/* Utiliser une clé unique pour forcer la reconstruction du formulaire */}
         <TierForm
-          onSubmit={onSubmit}
-          onCancel={() => onOpenChange(false)}
-          initialValues={initialValues}
+          key={isEditing ? `edit-${tier?.id}` : 'new'}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          initialValues={initialFormValues}
           isEditing={isEditing}
         />
       </DialogContent>

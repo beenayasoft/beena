@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tier, TierFormValues, tierFormSchema, tierTypes } from "./types";
+import { useEffect } from "react";
 
 interface TierFormProps {
   onSubmit: (values: TierFormValues) => void;
@@ -38,23 +39,48 @@ export function TierForm({
   initialValues,
   isEditing = false 
 }: TierFormProps) {
+  console.log("TierForm rendering with initialValues:", initialValues);
+  
   const form = useForm<TierFormValues>({
     resolver: zodResolver(tierFormSchema),
     defaultValues: {
-      name: initialValues?.name || "",
-      types: initialValues?.types || [],
-      contact: initialValues?.contact || "",
-      email: initialValues?.email || "",
-      phone: initialValues?.phone || "",
-      address: initialValues?.address || "",
-      siret: initialValues?.siret || "",
-      status: initialValues?.status || "active",
+      name: "",
+      types: [],
+      contact: "",
+      email: "",
+      phone: "",
+      address: "",
+      siret: "",
+      status: "active",
     },
   });
 
+  // Mettre à jour les valeurs du formulaire lorsque initialValues change
+  useEffect(() => {
+    if (initialValues) {
+      console.log("Resetting form with values:", initialValues);
+      // Réinitialiser le formulaire avec les nouvelles valeurs
+      form.reset({
+        name: initialValues.name || "",
+        types: initialValues.types || [],
+        contact: initialValues.contact || "",
+        email: initialValues.email || "",
+        phone: initialValues.phone || "",
+        address: initialValues.address || "",
+        siret: initialValues.siret || "",
+        status: initialValues.status || "active",
+      });
+    }
+  }, [form, initialValues]);
+
+  const handleFormSubmit = (values: TierFormValues) => {
+    console.log("Form submitted with values:", values);
+    onSubmit(values);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 py-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Nom */}
           <FormField
@@ -141,6 +167,7 @@ export function TierForm({
                 <Select 
                   onValueChange={field.onChange} 
                   defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
