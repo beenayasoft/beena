@@ -18,25 +18,25 @@ export default function InvoicePreview() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isPreviewMode = id === 'preview';
 
   // Load invoice data
   useEffect(() => {
-    if (isPreviewMode) {
-      // Get invoice data from sessionStorage
-      const storedInvoice = sessionStorage.getItem('previewInvoice');
-      if (storedInvoice) {
-        try {
-          setInvoice(JSON.parse(storedInvoice) as Invoice);
-        } catch (err) {
-          setError("Erreur lors du chargement de l'aperçu");
-          console.error(err);
-        }
-      } else {
-        setError("Aucune donnée d'aperçu disponible");
+    // Essayer d'abord de récupérer depuis sessionStorage
+    const storedInvoice = sessionStorage.getItem('previewInvoice');
+    
+    if (storedInvoice) {
+      try {
+        setInvoice(JSON.parse(storedInvoice));
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.error("Erreur lors du parsing de l'aperçu:", err);
+        // Continue to try loading from API if parsing fails
       }
-      setLoading(false);
-    } else if (id) {
+    }
+    
+    // Si pas de données dans sessionStorage ou erreur de parsing, essayer de charger depuis l'API
+    if (id && id !== 'preview') {
       try {
         const invoiceData = getInvoiceById(id);
         if (invoiceData) {
@@ -47,11 +47,13 @@ export default function InvoicePreview() {
       } catch (err) {
         setError("Erreur lors du chargement de la facture");
         console.error(err);
-      } finally {
-        setLoading(false);
       }
+    } else if (!storedInvoice) {
+      setError("Aucune donnée d'aperçu disponible");
     }
-  }, [id, isPreviewMode]);
+    
+    setLoading(false);
+  }, [id]);
 
   // Format a date
   const formatDate = (dateString?: string) => {
@@ -110,7 +112,7 @@ export default function InvoicePreview() {
               variant="ghost" 
               size="icon" 
               className="bg-white/10 hover:bg-white/20"
-              onClick={() => window.close()}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>

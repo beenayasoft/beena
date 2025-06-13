@@ -350,8 +350,8 @@ export default function InvoiceEditor() {
     // Store the current invoice data in sessionStorage
     sessionStorage.setItem('previewInvoice', JSON.stringify(invoice));
     
-    // Open the preview page in a new tab
-    window.open(`/factures/${invoice.id || 'preview'}`, '_blank');
+    // Open the preview page
+    navigate(`/factures/preview/${invoice.id || 'preview'}`);
   };
 
   // Add a chapter/section
