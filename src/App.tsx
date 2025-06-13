@@ -10,8 +10,8 @@ import Factures from "@/pages/Factures";
 import Interventions from "@/pages/Interventions";
 import Stock from "@/pages/Stock";
 import Settings from "@/pages/Settings";
-import PlaceholderPage from "@/pages/PlaceholderPage";
 import NotFound from "@/pages/NotFound";
+import Tiers from "@/pages/Tiers";
 import { Users } from "lucide-react";
 
 export default function App() {
@@ -32,18 +32,10 @@ export default function App() {
             <Route path="interventions" element={<Interventions />} />
             <Route path="stock" element={<Stock />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="tiers" element={<Tiers />} />
 
             {/* Placeholder pages */}
-            <Route
-              path="clients"
-              element={
-                <PlaceholderPage
-                  title="Clients"
-                  description="Gérez votre portefeuille clients"
-                  icon={Users}
-                />
-              }
-            />
+            
           </Route>
 
           {/* 404 route */}
