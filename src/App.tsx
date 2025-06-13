@@ -7,6 +7,7 @@ import Agenda from "@/pages/Agenda";
 import Chantiers from "@/pages/Chantiers";
 import Devis from "@/pages/Devis";
 import Factures from "@/pages/Factures";
+import InvoiceDetail from "@/pages/InvoiceDetail";
 import Interventions from "@/pages/Interventions";
 import Stock from "@/pages/Stock";
 import Settings from "@/pages/Settings";
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="chantiers" element={<Chantiers />} />
             <Route path="devis" element={<Devis />} />
             <Route path="factures" element={<Factures />} />
+            <Route path="factures/:id" element={<InvoiceDetail />} />
             <Route path="interventions" element={<Interventions />} />
             <Route path="stock" element={<Stock />} />
             <Route path="settings" element={<Settings />} />
