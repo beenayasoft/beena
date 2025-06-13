@@ -124,10 +124,10 @@ export function SimpleSidebar() {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-benaya-900 dark:text-white">
-                  benaya
+                  SM2i
                 </h1>
                 <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                  ERP Construction
+                  Société BTP
                 </p>
               </div>
             </div>
@@ -221,16 +221,16 @@ export function SimpleSidebar() {
               isCollapsed && "justify-center",
             )}
           >
-            <div className="w-8 h-8 rounded-full bg-benaya-900 flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">J</span>
+            <div className="w-8 h-8">
+              <img src="/logo.svg" alt="Beenaya logo" className="w-full h-full" />
             </div>
             {!isCollapsed && (
               <div className="flex-1">
                 <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                  Jean
+                  Beenaya
                 </p>
                 <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                  Admin
+                  v1.0.0
                 </p>
               </div>
             )}
