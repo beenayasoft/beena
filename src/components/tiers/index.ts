@@ -5,4 +5,5 @@ export * from './TiersList';
 export * from './TierDialog';
 export * from './TiersStats';
 export * from './TiersSearch';
-export * from './TiersTabs'; 
+export * from './TiersTabs';
+export * from './DeleteConfirmDialog'; 

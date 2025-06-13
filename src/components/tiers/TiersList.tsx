@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Tier, useTierUtils } from "./index";
+import { MouseEvent } from "react";
 
 interface TiersListProps {
   tiers: Tier[];
@@ -43,6 +44,28 @@ export function TiersList({
   onEmail
 }: TiersListProps) {
   const { getTypeBadge, getStatusBadge } = useTierUtils();
+
+  // Gestionnaire sécurisé pour les actions
+  const handleAction = (
+    e: MouseEvent, 
+    action: (tier: Tier) => void, 
+    tier: Tier
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Utiliser un setTimeout pour éviter les problèmes de rendu
+    setTimeout(() => {
+      action(tier);
+    }, 10);
+  };
+
+  // Gestionnaire pour le clic sur une ligne
+  const handleRowClick = (tier: Tier) => {
+    if (onView) {
+      onView(tier);
+    }
+  };
 
   return (
     <div className="overflow-hidden border border-neutral-200 dark:border-neutral-700 rounded-lg">
@@ -68,7 +91,11 @@ export function TiersList({
             </TableRow>
           ) : (
             tiers.map((tier) => (
-              <TableRow key={tier.id}>
+              <TableRow 
+                key={tier.id} 
+                className={onView ? "cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50" : ""}
+                onClick={onView ? () => handleRowClick(tier) : undefined}
+              >
                 <TableCell className="font-medium">{tier.name}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
@@ -82,34 +109,51 @@ export function TiersList({
                 <TableCell>{tier.phone}</TableCell>
                 <TableCell>{tier.siret}</TableCell>
                 <TableCell>{getStatusBadge(tier.status)}</TableCell>
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="benaya-glass">
                       {onView && (
-                        <DropdownMenuItem onClick={() => onView(tier)}>
+                        <DropdownMenuItem 
+                          onSelect={(e) => e.preventDefault()}
+                          onClick={(e) => handleAction(e, onView, tier)}
+                        >
                           <Eye className="mr-2 h-4 w-4" />
                           Voir
                         </DropdownMenuItem>
                       )}
                       {onEdit && (
-                        <DropdownMenuItem onClick={() => onEdit(tier)}>
+                        <DropdownMenuItem 
+                          onSelect={(e) => e.preventDefault()}
+                          onClick={(e) => handleAction(e, onEdit, tier)}
+                        >
                           <Edit className="mr-2 h-4 w-4" />
                           Modifier
                         </DropdownMenuItem>
                       )}
                       {onCall && (
-                        <DropdownMenuItem onClick={() => onCall(tier)}>
+                        <DropdownMenuItem 
+                          onSelect={(e) => e.preventDefault()}
+                          onClick={(e) => handleAction(e, onCall, tier)}
+                        >
                           <Phone className="mr-2 h-4 w-4" />
                           Appeler
                         </DropdownMenuItem>
                       )}
                       {onEmail && (
-                        <DropdownMenuItem onClick={() => onEmail(tier)}>
+                        <DropdownMenuItem 
+                          onSelect={(e) => e.preventDefault()}
+                          onClick={(e) => handleAction(e, onEmail, tier)}
+                        >
                           <Mail className="mr-2 h-4 w-4" />
                           Envoyer un email
                         </DropdownMenuItem>
@@ -118,7 +162,8 @@ export function TiersList({
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
-                            onClick={() => onDelete(tier)}
+                            onSelect={(e) => e.preventDefault()}
+                            onClick={(e) => handleAction(e, onDelete, tier)}
                             className="text-red-600"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
