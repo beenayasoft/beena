@@ -23,7 +23,6 @@ import { InvoiceStats } from "@/components/invoices/InvoiceStats";
 import { InvoiceFilters } from "@/components/invoices/InvoiceFilters";
 import { InvoiceTabs } from "@/components/invoices/InvoiceTabs";
 import { InvoiceList } from "@/components/invoices/InvoiceList";
-import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { RecordPaymentModal } from "@/components/invoices/RecordPaymentModal";
 import { CreateCreditNoteModal } from "@/components/invoices/CreateCreditNoteModal";
 import { 
@@ -51,13 +50,12 @@ export default function Factures() {
     cancelled: 0,
   });
   
-  // États pour les modales
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  // States for modals
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [creditNoteModalOpen, setCreditNoteModalOpen] = useState(false);
 
-  // Charger les factures et statistiques
+  // Load invoices and stats
   useEffect(() => {
     const invoiceStats = getInvoiceStats();
     setStats({
@@ -70,7 +68,7 @@ export default function Factures() {
       cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
     });
 
-    // Filtrer les factures selon l'onglet actif
+    // Filter invoices based on active tab
     let statusFilter: InvoiceStatus | undefined;
     if (activeTab !== "all") {
       statusFilter = activeTab as InvoiceStatus;
@@ -83,40 +81,44 @@ export default function Factures() {
     setInvoices(filteredInvoices);
   }, [activeTab, searchQuery]);
 
-  // Voir le détail d'une facture
+  // View invoice details
   const handleViewInvoice = (invoice: Invoice) => {
     navigate(`/factures/${invoice.id}`);
   };
 
-  // Modifier une facture
+  // Edit invoice
   const handleEditInvoice = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    setCreateModalOpen(true);
+    navigate(`/factures/edit/${invoice.id}`);
   };
 
-  // Supprimer une facture
+  // Create new invoice
+  const handleCreateInvoice = () => {
+    navigate(`/factures/edit/new`);
+  };
+
+  // Delete invoice
   const handleDeleteInvoice = (invoice: Invoice) => {
-    // Dans une vraie application, on demanderait une confirmation
+    // In a real app, we would ask for confirmation
     if (confirm(`Êtes-vous sûr de vouloir supprimer la facture ${invoice.number} ?`)) {
-      // Supprimer la facture (à implémenter dans lib/mock/invoices.ts)
-      // Puis recharger les factures
+      // Delete the invoice (to be implemented in lib/mock/invoices.ts)
+      // Then reload invoices
       const updatedInvoices = invoices.filter(inv => inv.id !== invoice.id);
       setInvoices(updatedInvoices);
     }
   };
 
-  // Valider et envoyer une facture
+  // Validate and send invoice
   const handleSendInvoice = (invoice: Invoice) => {
     try {
       const updatedInvoice = validateInvoice(invoice.id);
       if (updatedInvoice) {
-        // Mettre à jour la liste des factures
+        // Update invoice list
         const updatedInvoices = invoices.map(inv => 
           inv.id === updatedInvoice.id ? updatedInvoice : inv
         );
         setInvoices(updatedInvoices);
         
-        // Mettre à jour les statistiques
+        // Update stats
         const invoiceStats = getInvoiceStats();
         setStats({
           all: invoiceStats.total,
@@ -133,24 +135,24 @@ export default function Factures() {
     }
   };
 
-  // Enregistrer un paiement
+  // Record payment
   const handleRecordPayment = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setPaymentModalOpen(true);
   };
 
-  // Soumettre un paiement
+  // Submit payment
   const handleSubmitPayment = (invoiceId: string, payment: Omit<Payment, "id">) => {
     try {
       const updatedInvoice = recordPayment(invoiceId, payment);
       if (updatedInvoice) {
-        // Mettre à jour la liste des factures
+        // Update invoice list
         const updatedInvoices = invoices.map(inv => 
           inv.id === updatedInvoice.id ? updatedInvoice : inv
         );
         setInvoices(updatedInvoices);
         
-        // Mettre à jour les statistiques
+        // Update stats
         const invoiceStats = getInvoiceStats();
         setStats({
           all: invoiceStats.total,
@@ -167,25 +169,25 @@ export default function Factures() {
     }
   };
 
-  // Créer un avoir
+  // Create credit note
   const handleCreateCreditNote = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setCreditNoteModalOpen(true);
   };
 
-  // Soumettre un avoir
+  // Submit credit note
   const handleSubmitCreditNote = (invoiceId: string, isFullCreditNote: boolean, selectedItems?: string[]) => {
     try {
       const creditNote = createCreditNote(invoiceId, isFullCreditNote, selectedItems);
       if (creditNote) {
-        // Mettre à jour la liste des factures
+        // Update invoice list
         const updatedInvoices = getInvoices({
           status: activeTab !== "all" ? activeTab as InvoiceStatus : undefined,
           search: searchQuery,
         });
         setInvoices(updatedInvoices);
         
-        // Mettre à jour les statistiques
+        // Update stats
         const invoiceStats = getInvoiceStats();
         setStats({
           all: invoiceStats.total,
@@ -202,34 +204,9 @@ export default function Factures() {
     }
   };
 
-  // Télécharger une facture (placeholder)
+  // Download invoice (placeholder)
   const handleDownloadInvoice = (invoice: Invoice) => {
     alert(`Téléchargement de la facture ${invoice.number} à implémenter`);
-  };
-
-  // Créer une nouvelle facture
-  const handleCreateInvoice = (invoiceData: Partial<Invoice>) => {
-    // Dans une vraie application, on enverrait ces données à l'API
-    console.log("Nouvelle facture:", invoiceData);
-    
-    // Recharger les factures
-    const updatedInvoices = getInvoices({
-      status: activeTab !== "all" ? activeTab as InvoiceStatus : undefined,
-      search: searchQuery,
-    });
-    setInvoices(updatedInvoices);
-    
-    // Mettre à jour les statistiques
-    const invoiceStats = getInvoiceStats();
-    setStats({
-      all: invoiceStats.total,
-      draft: invoiceStats.draft,
-      sent: invoiceStats.sent,
-      overdue: invoiceStats.overdue,
-      partially_paid: invoiceStats.partially_paid,
-      paid: invoiceStats.paid,
-      cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
-    });
   };
 
   return (
@@ -245,7 +222,7 @@ export default function Factures() {
           </div>
           <Button 
             className="gap-2 bg-white text-benaya-900 hover:bg-white/90"
-            onClick={() => setCreateModalOpen(true)}
+            onClick={handleCreateInvoice}
           >
             <Plus className="w-4 h-4" />
             Nouvelle facture
@@ -307,20 +284,6 @@ export default function Factures() {
       </div>
 
       {/* Modals */}
-      <CreateInvoiceModal
-        open={createModalOpen}
-        onOpenChange={setCreateModalOpen}
-        onSubmit={handleCreateInvoice}
-        initialInvoice={selectedInvoice || undefined}
-        clients={initialTiers}
-        projects={[
-          { id: '1', name: 'Villa Moderne' },
-          { id: '2', name: 'Rénovation appartement' },
-          { id: '3', name: 'Extension maison' },
-          { id: '4', name: 'Rénovation cuisine' },
-        ]}
-      />
-
       {selectedInvoice && (
         <>
           <RecordPaymentModal
