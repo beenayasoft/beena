@@ -14,6 +14,7 @@ import {
   Calendar,
   Wrench,
   Package,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -59,10 +60,11 @@ const mainNavItems = [
     href: "/stock",
     icon: Package,
   },
+ 
   {
-    name: "Clients",
-    href: "/clients",
-    icon: Users,
+    name: "Tiers",
+    href: "/tiers",
+    icon: Building2,
   },
   {
     name: "Paramètres",

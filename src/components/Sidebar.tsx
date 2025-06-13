@@ -13,6 +13,7 @@ import {
   Heart,
   HelpCircle,
   ChevronDown,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +55,14 @@ const sales = [
     name: "Bibliothèque",
     href: "/bibliotheque",
     icon: BookOpen,
+  },
+];
+
+const contacts = [
+  {
+    name: "Tiers",
+    href: "/tiers",
+    icon: Building2,
   },
 ];
 
@@ -185,6 +194,34 @@ export function Sidebar({ className }: SidebarProps) {
           </div>
           <div className="space-y-1">
             {sales.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={cn(
+                    "sidebar-item",
+                    isActive(item.href) &&
+                      "active bg-benaya-50 dark:bg-benaya-950 text-benaya-700 dark:text-benaya-300",
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Contacts & CRM Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-3">
+            <h3 className="text-xs font-semibold text-neo-gray-500 dark:text-neo-gray-400 uppercase tracking-wider">
+              CONTACTS & CRM
+            </h3>
+          </div>
+          <div className="space-y-1">
+            {contacts.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
