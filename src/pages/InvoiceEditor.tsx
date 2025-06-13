@@ -48,7 +48,6 @@ import { initialTiers } from "@/components/tiers";
 import { formatCurrency } from "@/lib/utils";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { DraggableInvoiceItem } from "@/components/invoices/DraggableInvoiceItem";
 
 export default function InvoiceEditor() {
@@ -687,7 +686,6 @@ export default function InvoiceEditor() {
                   <DndContext 
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
-                    modifiers={[restrictToVerticalAxis]}
                   >
                     <Table>
                       <TableHeader>
