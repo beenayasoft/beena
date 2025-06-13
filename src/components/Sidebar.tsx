@@ -14,6 +14,8 @@ import {
   HelpCircle,
   ChevronDown,
   Building2,
+  Library,
+  Hammer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,9 +54,9 @@ const sales = [
     icon: Users,
   },
   {
-    name: "Bibliothèque",
-    href: "/bibliotheque",
-    icon: BookOpen,
+    name: "Bibliothèque d'ouvrages",
+    href: "/bibliotheque-ouvrages",
+    icon: Hammer,
   },
 ];
 

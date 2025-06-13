@@ -4,6 +4,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogPortal,
+  DialogOverlay,
 } from "@/components/ui/dialog";
 import { TierForm } from "./TierForm";
 import { Tier, TierFormValues } from "./types";
@@ -57,6 +59,11 @@ export function TierDialog({
   const handleCancel = () => {
     onOpenChange(false);
   };
+
+  // Utiliser un portail personnalisé pour éviter les problèmes d'accessibilité
+  if (!open) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

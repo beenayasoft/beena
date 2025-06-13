@@ -40,8 +40,31 @@ export function DeleteConfirmDialog({
     onOpenChange(false);
   };
 
-  // Si pas de tier et pas ouvert, ne rien rendre
-  if (!tier && !open) return null;
+  // Si pas ouvert, ne rien rendre pour éviter les problèmes d'accessibilité
+  if (!open) {
+    return null;
+  }
+
+  // Si pas de tier mais ouvert, afficher un message d'erreur
+  if (!tier) {
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent className="benaya-glass">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Erreur</AlertDialogTitle>
+            <AlertDialogDescription>
+              Impossible de charger les informations du tiers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => onOpenChange(false)}>
+              Fermer
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

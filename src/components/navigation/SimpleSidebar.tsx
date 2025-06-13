@@ -15,6 +15,7 @@ import {
   Wrench,
   Package,
   Building2,
+  Hammer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -60,7 +61,11 @@ const mainNavItems = [
     href: "/stock",
     icon: Package,
   },
- 
+  {
+    name: "Bibliothèque d'ouvrages",
+    href: "/bibliotheque-ouvrages",
+    icon: Hammer,
+  },
   {
     name: "Tiers",
     href: "/tiers",

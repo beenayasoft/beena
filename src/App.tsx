@@ -13,6 +13,7 @@ import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 import Tiers from "@/pages/Tiers";
 import TierDetail from "@/pages/TierDetail";
+import WorkLibrary from "@/pages/WorkLibrary";
 import { Users } from "lucide-react";
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="tiers" element={<Tiers />} />
             <Route path="tiers/:id" element={<TierDetail />} />
+            <Route path="bibliotheque-ouvrages" element={<WorkLibrary />} />
 
             {/* Placeholder pages */}
             

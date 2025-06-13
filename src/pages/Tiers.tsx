@@ -83,9 +83,11 @@ export default function Tiers() {
     // Fermer la modale
     setDialogOpen(false);
     // Réinitialiser l'état d'édition
-    setEditingTier(undefined);
-    // Forcer le rafraîchissement
-    setForceUpdate(prev => prev + 1);
+    setTimeout(() => {
+      setEditingTier(undefined);
+      // Forcer le rafraîchissement
+      setForceUpdate(prev => prev + 1);
+    }, 100);
   };
 
   // Gérer la fermeture de la modale d'édition
@@ -98,7 +100,7 @@ export default function Tiers() {
         setEditingTier(undefined);
         // Forcer le rafraîchissement
         setForceUpdate(prev => prev + 1);
-      }, 300);
+      }, 100);
     } else {
       setDialogOpen(true);
     }
@@ -106,8 +108,10 @@ export default function Tiers() {
 
   // Gérer la suppression d'un tiers
   const handleDelete = (tier: Tier) => {
-    setTierToDelete(tier);
-    setDeleteDialogOpen(true);
+    setTierToDelete({...tier});
+    setTimeout(() => {
+      setDeleteDialogOpen(true);
+    }, 50);
   };
 
   // Confirmer la suppression d'un tiers
@@ -121,7 +125,7 @@ export default function Tiers() {
       setTierToDelete(null);
       // Forcer le rafraîchissement
       setForceUpdate(prev => prev + 1);
-    }, 300);
+    }, 100);
   };
 
   // Gérer la fermeture de la modale de suppression
@@ -133,7 +137,7 @@ export default function Tiers() {
         setTierToDelete(null);
         // Forcer le rafraîchissement
         setForceUpdate(prev => prev + 1);
-      }, 300);
+      }, 100);
     } else {
       setDeleteDialogOpen(true);
     }
@@ -141,8 +145,8 @@ export default function Tiers() {
 
   // Gérer l'édition d'un tiers
   const handleEdit = (tier: Tier) => {
-    // Définir d'abord le tier à éditer, puis ouvrir la modale
-    setEditingTier({...tier}); // Copie profonde pour éviter les références partagées
+    // Définir d'abord le tier à éditer avec une copie profonde
+    setEditingTier({...tier});
     // Attendre que le state soit mis à jour avant d'ouvrir la modale
     setTimeout(() => {
       setDialogOpen(true);
@@ -164,21 +168,6 @@ export default function Tiers() {
     window.open(`mailto:${tier.email}`);
   };
 
-  // Préparation des données pour le formulaire d'édition
-  const getFormInitialValues = () => {
-    if (!editingTier) return undefined;
-    return {
-      name: editingTier.name,
-      types: editingTier.type,
-      contact: editingTier.contact,
-      email: editingTier.email,
-      phone: editingTier.phone,
-      address: editingTier.address,
-      siret: editingTier.siret,
-      status: editingTier.status as "active" | "inactive",
-    };
-  };
-
   return (
     <div className="p-6 space-y-6">
       {/* Page Header */}
@@ -194,7 +183,9 @@ export default function Tiers() {
             className="gap-2 bg-white text-benaya-900 hover:bg-white/90"
             onClick={() => {
               setEditingTier(undefined);
-              setDialogOpen(true);
+              setTimeout(() => {
+                setDialogOpen(true);
+              }, 50);
             }}
           >
             <Plus className="w-4 h-4" />
