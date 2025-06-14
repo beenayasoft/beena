@@ -12,6 +12,103 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
     return new Date(dateString).toLocaleDateString('fr-FR');
   };
 
+  // Get section items for hierarchical display
+  const getSectionItems = (parentId?: string) => {
+    if (!invoice.items) return [];
+    return invoice.items.filter(item => item.parentId === parentId);
+  };
+
+  // Get root level items (no parent)
+  const getRootItems = () => {
+    if (!invoice.items) return [];
+    return invoice.items.filter(item => !item.parentId);
+  };
+
+  // Calculate section total
+  const getSectionTotal = (sectionId: string) => {
+    if (!invoice.items) return { totalHT: 0, totalTTC: 0 };
+    
+    let totalHT = 0;
+    let totalTTC = 0;
+    
+    // Get all items in this section
+    const sectionItems = invoice.items.filter(item => item.parentId === sectionId);
+    
+    // Sum up the totals
+    sectionItems.forEach(item => {
+      if (item.type !== 'chapter' && item.type !== 'section') {
+        totalHT += item.totalHT;
+        totalTTC += item.totalTTC;
+      }
+    });
+    
+    return { totalHT, totalTTC };
+  };
+
+  // Render hierarchical items
+  const renderItems = (items: InvoiceItem[], level = 0) => {
+    return items.map((item) => {
+      // For chapters and sections, render with their children
+      if (item.type === 'chapter' || item.type === 'section') {
+        const { totalHT } = getSectionTotal(item.id);
+        const childItems = getSectionItems(item.id);
+        
+        return (
+          <React.Fragment key={item.id}>
+            <tr className="bg-neutral-50">
+              <td 
+                colSpan={5} 
+                className="py-3 px-4 font-semibold text-benaya-900 border-b border-neutral-200"
+                style={{ paddingLeft: `${level * 20 + 16}px` }}
+              >
+                {item.designation}
+              </td>
+            </tr>
+            
+            {/* Render child items */}
+            {renderItems(childItems, level + 1)}
+          </React.Fragment>
+        );
+      }
+      
+      // For regular items
+      return (
+        <tr key={item.id}>
+          <td 
+            className="py-3 px-4 border-b border-neutral-200"
+            style={{ paddingLeft: `${level * 20 + 16}px` }}
+          >
+            <div className="font-medium">{item.designation}</div>
+            {item.description && (
+              <div className="text-xs text-neutral-600">
+                {item.description}
+              </div>
+            )}
+          </td>
+          <td className="py-3 px-4 text-right border-b border-neutral-200">
+            {item.quantity} {item.unit}
+          </td>
+          <td className="py-3 px-4 text-right border-b border-neutral-200">
+            {formatCurrency(Math.abs(item.unitPrice))} MAD
+            {item.discount && item.discount > 0 && (
+              <div className="text-xs text-red-600">
+                -{item.discount}%
+              </div>
+            )}
+          </td>
+          <td className="py-3 px-4 text-right border-b border-neutral-200">
+            {item.vatRate}%
+          </td>
+          <td className="py-3 px-4 text-right font-medium border-b border-neutral-200">
+            <span className={item.type === 'discount' ? "text-red-600" : ""}>
+              {formatCurrency(Math.abs(item.totalHT))} {item.type === 'discount' && "-"} MAD
+            </span>
+          </td>
+        </tr>
+      );
+    });
+  };
+
   return (
     <div className="w-full h-full bg-white text-black overflow-auto">
       {/* A4 container with proper aspect ratio */}
@@ -130,42 +227,7 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
               </tr>
             </thead>
             <tbody>
-              {invoice.items && invoice.items.map((item: InvoiceItem) => {
-                if (item.type === 'chapter' || item.type === 'section') {
-                  return (
-                    <tr key={item.id} className="bg-neutral-50">
-                      <td colSpan={5} className="py-3 px-4 font-semibold text-benaya-900 border-b border-neutral-200">
-                        {item.designation}
-                      </td>
-                    </tr>
-                  );
-                }
-                
-                return (
-                  <tr key={item.id}>
-                    <td className="py-3 px-4 border-b border-neutral-200">
-                      <div className="font-medium">{item.designation}</div>
-                      {item.description && (
-                        <div className="text-xs text-neutral-600">
-                          {item.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right border-b border-neutral-200">
-                      {item.quantity} {item.unit}
-                    </td>
-                    <td className="py-3 px-4 text-right border-b border-neutral-200">
-                      {formatCurrency(item.unitPrice)} MAD
-                    </td>
-                    <td className="py-3 px-4 text-right border-b border-neutral-200">
-                      {item.vatRate}%
-                    </td>
-                    <td className="py-3 px-4 text-right font-medium border-b border-neutral-200">
-                      {formatCurrency(item.totalHT)} MAD
-                    </td>
-                  </tr>
-                );
-              })}
+              {renderItems(getRootItems())}
             </tbody>
           </table>
 

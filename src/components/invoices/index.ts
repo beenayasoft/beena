@@ -6,3 +6,6 @@ export * from './CreateInvoiceModal';
 export * from './RecordPaymentModal';
 export * from './CreateCreditNoteModal';
 export * from './CreateInvoiceFromQuoteModal';
+export * from './InvoiceItemForm';
+export * from './SectionForm';
+export * from './DiscountForm';

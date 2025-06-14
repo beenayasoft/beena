@@ -18,13 +18,17 @@ import {
   Pencil,
   Check,
   X,
-  MoveVertical
+  MoveVertical,
+  ChevronDown,
+  ChevronRight,
+  Percent
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -49,6 +53,9 @@ import { formatCurrency } from "@/lib/utils";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DraggableInvoiceItem } from "@/components/invoices/DraggableInvoiceItem";
+import { InvoiceItemForm } from "@/components/invoices/InvoiceItemForm";
+import { SectionForm } from "@/components/invoices/SectionForm";
+import { DiscountForm } from "@/components/invoices/DiscountForm";
 
 export default function InvoiceEditor() {
   const { id } = useParams<{ id: string }>();
@@ -59,6 +66,13 @@ export default function InvoiceEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [showTaxIncluded, setShowTaxIncluded] = useState(true);
+
+  // Modals
+  const [itemFormOpen, setItemFormOpen] = useState(false);
+  const [sectionFormOpen, setSectionFormOpen] = useState(false);
+  const [discountFormOpen, setDiscountFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
 
   // Invoice state
   const [invoice, setInvoice] = useState<Partial<Invoice>>({
@@ -81,16 +95,6 @@ export default function InvoiceEditor() {
     remainingAmount: 0,
     payments: [],
     status: "draft" as InvoiceStatus,
-  });
-
-  // New item state
-  const [newItem, setNewItem] = useState<Partial<InvoiceItem>>({
-    designation: "",
-    description: "",
-    unit: "unité",
-    quantity: 1,
-    unitPrice: 0,
-    vatRate: 20,
   });
 
   // Validation errors
@@ -124,13 +128,47 @@ export default function InvoiceEditor() {
     }
   }, [invoice, loading]);
 
+  // Recalculate totals when items change
+  useEffect(() => {
+    if (invoice.items && invoice.items.length > 0) {
+      // Calculate totals
+      let totalHT = 0;
+      let totalVAT = 0;
+      
+      invoice.items.forEach(item => {
+        if (item.type !== 'chapter' && item.type !== 'section') {
+          totalHT += item.totalHT;
+          totalVAT += item.totalHT * (item.vatRate / 100);
+        }
+      });
+      
+      const totalTTC = totalHT + totalVAT;
+      
+      setInvoice(prev => ({
+        ...prev,
+        totalHT,
+        totalVAT,
+        totalTTC,
+        remainingAmount: totalTTC,
+      }));
+    } else {
+      setInvoice(prev => ({
+        ...prev,
+        totalHT: 0,
+        totalVAT: 0,
+        totalTTC: 0,
+        remainingAmount: 0,
+      }));
+    }
+  }, [invoice.items]);
+
   // Clients and projects data
   const clients = initialTiers;
   const projects = [
-    { id: '1', name: 'Villa Moderne' },
-    { id: '2', name: 'Rénovation appartement' },
-    { id: '3', name: 'Extension maison' },
-    { id: '4', name: 'Rénovation cuisine' },
+    { id: '1', name: 'Villa Moderne', address: '123 Rue de la Paix, Casablanca', clientId: '1' },
+    { id: '2', name: 'Rénovation appartement', address: '45 Avenue Hassan II, Rabat', clientId: '2' },
+    { id: '3', name: 'Extension maison', address: '78 Boulevard Zerktouni, Marrakech', clientId: '3' },
+    { id: '4', name: 'Rénovation cuisine', address: '25 Boulevard Central, 33000 Bordeaux', clientId: '4' },
   ];
 
   // Update client selection
@@ -144,6 +182,25 @@ export default function InvoiceEditor() {
         clientAddress: selectedClient.address,
       }));
       setErrors(prev => ({ ...prev, clientId: "" }));
+      
+      // Check if there's a project for this client
+      const clientProjects = projects.filter(p => p.clientId === clientId);
+      if (clientProjects.length === 1) {
+        // If only one project, select it automatically
+        handleProjectChange(clientProjects[0].id);
+      } else if (invoice.projectId) {
+        // Check if current project belongs to this client
+        const currentProject = projects.find(p => p.id === invoice.projectId);
+        if (currentProject && currentProject.clientId !== clientId) {
+          // Reset project if it doesn't belong to the client
+          setInvoice(prev => ({
+            ...prev,
+            projectId: "",
+            projectName: "",
+            projectAddress: "",
+          }));
+        }
+      }
     }
   };
 
@@ -155,8 +212,22 @@ export default function InvoiceEditor() {
         ...prev,
         projectId,
         projectName: selectedProject.name,
-        // In a real app, we would also set projectAddress
+        projectAddress: selectedProject.address,
       }));
+      
+      // If client is not already selected, select the project's client
+      if (!invoice.clientId) {
+        const projectClient = clients.find(client => client.id === selectedProject.clientId);
+        if (projectClient) {
+          setInvoice(prev => ({
+            ...prev,
+            clientId: projectClient.id,
+            clientName: projectClient.name,
+            clientAddress: projectClient.address,
+          }));
+          setErrors(prev => ({ ...prev, clientId: "" }));
+        }
+      }
     }
   };
 
@@ -192,87 +263,50 @@ export default function InvoiceEditor() {
     setErrors(prev => ({ ...prev, [field]: "" }));
   };
 
-  // Handle changes in new item form
-  const handleNewItemChange = (field: string, value: string | number) => {
-    setNewItem(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
   // Add a new item to the invoice
-  const addItem = () => {
-    if (!newItem.designation) {
-      setErrors(prev => ({ ...prev, newItemDesignation: "La désignation est requise" }));
-      return;
-    }
-    
-    const quantity = Number(newItem.quantity) || 0;
-    const unitPrice = Number(newItem.unitPrice) || 0;
-    const vatRate = Number(newItem.vatRate) || 0;
-    
-    const totalHT = quantity * unitPrice;
-    const totalTTC = totalHT * (1 + vatRate / 100);
-    
-    const item: InvoiceItem = {
-      id: `item-${Date.now()}`,
-      type: 'product',
-      position: (invoice.items?.length || 0) + 1,
-      designation: newItem.designation || "",
-      description: newItem.description || "",
-      unit: newItem.unit || "unité",
-      quantity,
-      unitPrice,
-      vatRate: newItem.vatRate as VATRate,
-      totalHT,
-      totalTTC,
-    };
+  const handleAddItem = (item: InvoiceItem) => {
+    // Set position to the end of the list
+    item.position = (invoice.items?.length || 0) + 1;
     
     const updatedItems = [...(invoice.items || []), item];
     
-    // Recalculate totals
-    const newTotalHT = updatedItems.reduce((sum, item) => sum + item.totalHT, 0);
-    const newTotalVAT = updatedItems.reduce((sum, item) => sum + (item.totalHT * item.vatRate / 100), 0);
-    const newTotalTTC = newTotalHT + newTotalVAT;
+    setInvoice(prev => ({
+      ...prev,
+      items: updatedItems,
+    }));
+    
+    setErrors(prev => ({ ...prev, items: "" }));
+  };
+
+  // Update an existing item
+  const handleUpdateItem = (updatedItem: InvoiceItem) => {
+    if (!invoice.items) return;
+    
+    const updatedItems = invoice.items.map(item => 
+      item.id === updatedItem.id ? updatedItem : item
+    );
     
     setInvoice(prev => ({
       ...prev,
       items: updatedItems,
-      totalHT: newTotalHT,
-      totalVAT: newTotalVAT,
-      totalTTC: newTotalTTC,
-      remainingAmount: newTotalTTC,
     }));
-    
-    // Reset new item form
-    setNewItem({
-      designation: "",
-      description: "",
-      unit: "unité",
-      quantity: 1,
-      unitPrice: 0,
-      vatRate: 20,
-    });
-    
-    setErrors(prev => ({ ...prev, newItemDesignation: "", items: "" }));
   };
 
   // Remove an item from the invoice
-  const removeItem = (itemId: string) => {
-    const updatedItems = (invoice.items || []).filter(item => item.id !== itemId);
+  const handleRemoveItem = (itemId: string) => {
+    if (!invoice.items) return;
     
-    // Recalculate totals
-    const newTotalHT = updatedItems.reduce((sum, item) => sum + item.totalHT, 0);
-    const newTotalVAT = updatedItems.reduce((sum, item) => sum + (item.totalHT * item.vatRate / 100), 0);
-    const newTotalTTC = newTotalHT + newTotalVAT;
+    const updatedItems = invoice.items.filter(item => item.id !== itemId);
+    
+    // Update positions
+    const reorderedItems = updatedItems.map((item, index) => ({
+      ...item,
+      position: index + 1,
+    }));
     
     setInvoice(prev => ({
       ...prev,
-      items: updatedItems,
-      totalHT: newTotalHT,
-      totalVAT: newTotalVAT,
-      totalTTC: newTotalTTC,
-      remainingAmount: newTotalTTC,
+      items: reorderedItems,
     }));
   };
 
@@ -297,6 +331,19 @@ export default function InvoiceEditor() {
           items: reorderedItems,
         };
       });
+    }
+  };
+
+  // Open item form for editing
+  const handleEditItem = (item: InvoiceItem) => {
+    setEditingItem(item);
+    
+    if (item.type === 'chapter' || item.type === 'section') {
+      setSectionFormOpen(true);
+    } else if (item.type === 'discount') {
+      setDiscountFormOpen(true);
+    } else {
+      setItemFormOpen(true);
     }
   };
 
@@ -382,24 +429,54 @@ export default function InvoiceEditor() {
     navigate(`/factures/preview/${invoice.id || 'preview'}`);
   };
 
-  // Add a chapter/section
-  const addChapter = () => {
-    const item: InvoiceItem = {
-      id: `chapter-${Date.now()}`,
-      type: 'chapter',
-      position: (invoice.items?.length || 0) + 1,
-      designation: "Nouvelle section",
-      quantity: 1,
-      unitPrice: 0,
-      vatRate: 20 as VATRate,
-      totalHT: 0,
-      totalTTC: 0,
-    };
+  // Add a global discount
+  const handleAddGlobalDiscount = (discountItem: InvoiceItem) => {
+    // Add the discount item to the end of the list
+    handleAddItem(discountItem);
+  };
+
+  // Get filtered projects based on selected client
+  const getFilteredProjects = () => {
+    if (!invoice.clientId) return projects;
+    return projects.filter(project => project.clientId === invoice.clientId);
+  };
+
+  // Get section items for hierarchical display
+  const getSectionItems = (parentId?: string) => {
+    if (!invoice.items) return [];
+    return invoice.items.filter(item => item.parentId === parentId);
+  };
+
+  // Get root level items (no parent)
+  const getRootItems = () => {
+    if (!invoice.items) return [];
+    return invoice.items.filter(item => !item.parentId);
+  };
+
+  // Calculate section total
+  const getSectionTotal = (sectionId: string) => {
+    if (!invoice.items) return { totalHT: 0, totalTTC: 0 };
     
-    setInvoice(prev => ({
-      ...prev,
-      items: [...(prev.items || []), item],
-    }));
+    let totalHT = 0;
+    let totalTTC = 0;
+    
+    // Get all items in this section
+    const sectionItems = invoice.items.filter(item => item.parentId === sectionId);
+    
+    // Sum up the totals
+    sectionItems.forEach(item => {
+      if (item.type !== 'chapter' && item.type !== 'section') {
+        totalHT += item.totalHT;
+        totalTTC += item.totalTTC;
+      }
+    });
+    
+    return { totalHT, totalTTC };
+  };
+
+  // Toggle tax included/excluded view
+  const handleToggleTaxIncluded = () => {
+    setShowTaxIncluded(!showTaxIncluded);
   };
 
   if (loading) {
@@ -427,6 +504,82 @@ export default function InvoiceEditor() {
       </div>
     );
   }
+
+  // Render hierarchical items
+  const renderItems = (items: InvoiceItem[], level = 0) => {
+    return items.map((item) => {
+      // For chapters and sections, render with their children
+      if (item.type === 'chapter' || item.type === 'section') {
+        const { totalHT, totalTTC } = getSectionTotal(item.id);
+        const childItems = getSectionItems(item.id);
+        const hasChildren = childItems.length > 0;
+        
+        return (
+          <React.Fragment key={item.id}>
+            <TableRow className="bg-neutral-50 dark:bg-neutral-800/50">
+              <TableCell 
+                colSpan={showTaxIncluded ? 6 : 5} 
+                className="font-semibold"
+                style={{ paddingLeft: `${level * 20 + 16}px` }}
+              >
+                <div className="flex items-center">
+                  {hasChildren ? (
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 mr-2" />
+                  )}
+                  {item.designation}
+                </div>
+              </TableCell>
+              <TableCell className="text-right font-medium">
+                {formatCurrency(totalHT)} MAD
+              </TableCell>
+              {showTaxIncluded && (
+                <TableCell className="text-right font-semibold">
+                  {formatCurrency(totalTTC)} MAD
+                </TableCell>
+              )}
+              <TableCell>
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleEditItem(item)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    onClick={() => handleRemoveItem(item.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+            
+            {/* Render child items */}
+            {hasChildren && renderItems(childItems, level + 1)}
+          </React.Fragment>
+        );
+      }
+      
+      // For regular items
+      return (
+        <DraggableInvoiceItem 
+          key={item.id} 
+          item={item} 
+          onRemove={handleRemoveItem}
+          onEdit={() => handleEditItem(item)}
+          indentLevel={level}
+          showTaxIncluded={showTaxIncluded}
+        />
+      );
+    });
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -571,7 +724,7 @@ export default function InvoiceEditor() {
                         <SelectValue placeholder="Sélectionner un projet" />
                       </SelectTrigger>
                       <SelectContent>
-                        {projects.map(project => (
+                        {getFilteredProjects().map(project => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.name}
                           </SelectItem>
@@ -598,58 +751,64 @@ export default function InvoiceEditor() {
             <div className="benaya-card">
               <h3 className="font-medium text-lg mb-4">Dates et conditions</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="issueDate" className={errors.issueDate ? "text-red-500" : ""}>
-                      Date d'émission <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="issueDate"
-                      type="date"
-                      value={invoice.issueDate}
-                      onChange={(e) => handleInputChange("issueDate", e.target.value)}
-                      className={`benaya-input ${errors.issueDate ? "border-red-500" : ""}`}
-                    />
-                    {errors.issueDate && (
-                      <p className="text-xs text-red-500 mt-1 flex items-center">
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        {errors.issueDate}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentTerms">Délai de paiement (jours)</Label>
-                    <Input
-                      id="paymentTerms"
-                      type="number"
-                      value={invoice.paymentTerms}
-                      onChange={(e) => handleInputChange("paymentTerms", parseInt(e.target.value))}
-                      className="benaya-input"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="issueDate" className={errors.issueDate ? "text-red-500" : ""}>
+                    Date d'émission <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="issueDate"
+                    type="date"
+                    value={invoice.issueDate}
+                    onChange={(e) => handleInputChange("issueDate", e.target.value)}
+                    className={`benaya-input ${errors.issueDate ? "border-red-500" : ""}`}
+                  />
+                  {errors.issueDate && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center">
+                      <AlertCircle className="w-3 h-3 mr-1" />
+                      {errors.issueDate}
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="dueDate" className={errors.dueDate ? "text-red-500" : ""}>
-                      Date d'échéance <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="dueDate"
-                      type="date"
-                      value={invoice.dueDate}
-                      onChange={(e) => handleInputChange("dueDate", e.target.value)}
-                      className={`benaya-input ${errors.dueDate ? "border-red-500" : ""}`}
-                    />
-                    {errors.dueDate && (
-                      <p className="text-xs text-red-500 mt-1 flex items-center">
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        {errors.dueDate}
-                      </p>
-                    )}
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentTerms">Délai de paiement (jours)</Label>
+                  <Select 
+                    value={invoice.paymentTerms?.toString()} 
+                    onValueChange={(value) => handleInputChange("paymentTerms", parseInt(value))}
+                  >
+                    <SelectTrigger className="benaya-input">
+                      <SelectValue placeholder="Délai de paiement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Paiement immédiat</SelectItem>
+                      <SelectItem value="7">7 jours</SelectItem>
+                      <SelectItem value="15">15 jours</SelectItem>
+                      <SelectItem value="30">30 jours</SelectItem>
+                      <SelectItem value="45">45 jours</SelectItem>
+                      <SelectItem value="60">60 jours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate" className={errors.dueDate ? "text-red-500" : ""}>
+                    Date d'échéance <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={invoice.dueDate}
+                    onChange={(e) => handleInputChange("dueDate", e.target.value)}
+                    className={`benaya-input ${errors.dueDate ? "border-red-500" : ""}`}
+                    readOnly
+                  />
+                  {errors.dueDate && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center">
+                      <AlertCircle className="w-3 h-3 mr-1" />
+                      {errors.dueDate}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -662,13 +821,57 @@ export default function InvoiceEditor() {
                 <h3 className="font-medium text-lg">Éléments de la facture</h3>
                 
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800">
+                    <span className="text-sm text-neutral-600 dark:text-neutral-400">HT</span>
+                    <div 
+                      className="relative w-12 h-6 bg-neutral-200 dark:bg-neutral-700 rounded-full cursor-pointer"
+                      onClick={handleToggleTaxIncluded}
+                    >
+                      <div 
+                        className={`absolute top-0 w-6 h-6 bg-white dark:bg-neutral-400 rounded-full shadow-sm transition-transform ${
+                          showTaxIncluded ? "right-0" : "left-0"
+                        }`}
+                      ></div>
+                    </div>
+                    <span className={`text-sm font-medium ${showTaxIncluded ? "text-neutral-900 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}>
+                      TTC
+                    </span>
+                  </div>
+                  
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={addChapter}
+                    onClick={() => {
+                      setEditingItem(null);
+                      setSectionFormOpen(true);
+                    }}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Ajouter une section
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setEditingItem(null);
+                      setItemFormOpen(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter un élément
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setEditingItem(null);
+                      setDiscountFormOpen(true);
+                    }}
+                  >
+                    <Percent className="w-4 h-4 mr-2" />
+                    Ajouter une remise
                   </Button>
                 </div>
               </div>
@@ -681,7 +884,7 @@ export default function InvoiceEditor() {
               )}
               
               {/* Existing Items */}
-              {invoice.items && invoice.items.length > 0 && (
+              {invoice.items && invoice.items.length > 0 ? (
                 <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden mb-6">
                   <DndContext 
                     collisionDetection={closestCenter}
@@ -694,9 +897,10 @@ export default function InvoiceEditor() {
                           <TableHead>Quantité</TableHead>
                           <TableHead>Prix unitaire</TableHead>
                           <TableHead>TVA</TableHead>
+                          <TableHead>Remise</TableHead>
                           <TableHead>Total HT</TableHead>
-                          <TableHead>Total TTC</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          {showTaxIncluded && <TableHead>Total TTC</TableHead>}
+                          <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <SortableContext 
@@ -704,129 +908,44 @@ export default function InvoiceEditor() {
                         strategy={verticalListSortingStrategy}
                       >
                         <TableBody>
-                          {invoice.items.map((item) => (
-                            <DraggableInvoiceItem 
-                              key={item.id} 
-                              item={item} 
-                              onRemove={removeItem} 
-                            />
-                          ))}
+                          {renderItems(getRootItems())}
                         </TableBody>
                       </SortableContext>
                     </Table>
                   </DndContext>
                 </div>
+              ) : (
+                <div className="border border-dashed border-neutral-300 dark:border-neutral-700 rounded-lg p-8 text-center mb-6">
+                  <FileText className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Aucun élément ajouté
+                  </h3>
+                  <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+                    Ajoutez des éléments à votre facture en utilisant les boutons ci-dessus
+                  </p>
+                  <div className="flex justify-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setEditingItem(null);
+                        setSectionFormOpen(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Ajouter une section
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        setEditingItem(null);
+                        setItemFormOpen(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Ajouter un élément
+                    </Button>
+                  </div>
+                </div>
               )}
-
-              {/* Add New Item Form */}
-              <div className="space-y-4 p-4 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
-                <h4 className="font-medium">Ajouter un élément</h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="designation" className={errors.newItemDesignation ? "text-red-500" : ""}>
-                      Désignation <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="designation"
-                      value={newItem.designation}
-                      onChange={(e) => handleNewItemChange("designation", e.target.value)}
-                      className={`benaya-input ${errors.newItemDesignation ? "border-red-500" : ""}`}
-                      placeholder="Nom de l'article ou service"
-                    />
-                    {errors.newItemDesignation && (
-                      <p className="text-xs text-red-500 mt-1 flex items-center">
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        {errors.newItemDesignation}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description (optionnel)</Label>
-                    <Input
-                      id="description"
-                      value={newItem.description}
-                      onChange={(e) => handleNewItemChange("description", e.target.value)}
-                      className="benaya-input"
-                      placeholder="Description détaillée"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">Quantité</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newItem.quantity}
-                      onChange={(e) => handleNewItemChange("quantity", parseFloat(e.target.value))}
-                      className="benaya-input"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unit">Unité</Label>
-                    <Select 
-                      value={newItem.unit} 
-                      onValueChange={(value) => handleNewItemChange("unit", value)}
-                    >
-                      <SelectTrigger className="benaya-input">
-                        <SelectValue placeholder="Unité" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unité">unité</SelectItem>
-                        <SelectItem value="h">heure</SelectItem>
-                        <SelectItem value="jour">jour</SelectItem>
-                        <SelectItem value="m²">m²</SelectItem>
-                        <SelectItem value="m³">m³</SelectItem>
-                        <SelectItem value="ml">ml</SelectItem>
-                        <SelectItem value="kg">kg</SelectItem>
-                        <SelectItem value="forfait">forfait</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unitPrice">Prix unitaire (MAD)</Label>
-                    <Input
-                      id="unitPrice"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newItem.unitPrice}
-                      onChange={(e) => handleNewItemChange("unitPrice", parseFloat(e.target.value))}
-                      className="benaya-input"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vatRate">TVA (%)</Label>
-                    <Select 
-                      value={newItem.vatRate?.toString()} 
-                      onValueChange={(value) => handleNewItemChange("vatRate", parseInt(value))}
-                    >
-                      <SelectTrigger className="benaya-input">
-                        <SelectValue placeholder="Taux de TVA" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">0%</SelectItem>
-                        <SelectItem value="7">7%</SelectItem>
-                        <SelectItem value="10">10%</SelectItem>
-                        <SelectItem value="14">14%</SelectItem>
-                        <SelectItem value="20">20%</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={addItem}
-                  className="w-full benaya-button-primary"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajouter cet élément
-                </Button>
-              </div>
 
               {/* Totals */}
               <div className="flex justify-end mt-6">
@@ -943,6 +1062,32 @@ export default function InvoiceEditor() {
           </Button>
         </div>
       </div>
+
+      {/* Modals */}
+      <InvoiceItemForm
+        open={itemFormOpen}
+        onOpenChange={setItemFormOpen}
+        onSubmit={editingItem ? handleUpdateItem : handleAddItem}
+        item={editingItem || undefined}
+        isEditing={!!editingItem}
+      />
+      
+      <SectionForm
+        open={sectionFormOpen}
+        onOpenChange={setSectionFormOpen}
+        onSubmit={editingItem ? handleUpdateItem : handleAddItem}
+        item={editingItem || undefined}
+        isEditing={!!editingItem}
+      />
+      
+      <DiscountForm
+        open={discountFormOpen}
+        onOpenChange={setDiscountFormOpen}
+        onSubmit={editingItem ? handleUpdateItem : handleAddGlobalDiscount}
+        item={editingItem || undefined}
+        isEditing={!!editingItem}
+        invoiceTotal={invoice.totalHT || 0}
+      />
     </div>
   );
 }
