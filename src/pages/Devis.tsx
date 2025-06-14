@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -13,23 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { QuotesList } from "@/components/quotes/list/QuotesList";
 import { QuotesStats } from "@/components/quotes/QuotesStats";
 import { QuotesFilters } from "@/components/quotes/QuotesFilters";
@@ -37,47 +21,8 @@ import { QuotesTabs } from "@/components/quotes/list/QuotesTabs";
 import { getQuotes, getQuotesStats } from "@/lib/mock/quotes";
 import { Quote, QuoteStatus } from "@/lib/types/quote";
 
-const quotes = [
-  {
-    id: "1",
-    number: "Brouillon",
-    amount: "0,00 MAD",
-    client: "Brouillon",
-    project: "—",
-    issueDate: "—",
-    expiryDate: "—",
-    status: "draft",
-  },
-  {
-    id: "2",
-    number: "DEV-2025-001",
-    amount: "15,500 MAD",
-    client: "Jean Dupont",
-    project: "Rénovation appartement",
-    issueDate: "15/06/2025",
-    expiryDate: "15/07/2025",
-    status: "sent",
-  },
-  {
-    id: "3",
-    number: "DEV-2025-002",
-    amount: "25,300 MAD",
-    client: "Marie Lambert",
-    project: "Villa moderne",
-    issueDate: "10/06/2025",
-    expiryDate: "10/07/2025",
-    status: "accepted",
-  },
-];
-
-const tabs = [
-  { id: "tous", label: "Tous", count: quotes.length },
-  { id: "brouillons", label: "Brouillons", count: 1 },
-  { id: "envoyes", label: "Envoyés", count: 1 },
-  { id: "acceptes", label: "Acceptés", count: 1 },
-];
-
 export default function Devis() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -123,8 +68,8 @@ export default function Devis() {
   };
 
   const handleEditQuote = (quote: Quote) => {
-    // Implémenter la navigation vers l'éditeur de devis
-    console.log("Modifier devis:", quote.id);
+    // Naviguer vers l'éditeur de devis
+    navigate(`/devis/edit/${quote.id}`);
   };
 
   const handleDeleteQuote = (quote: Quote) => {
@@ -148,23 +93,8 @@ export default function Devis() {
   };
 
   const handleCreateQuote = () => {
-    // Implémenter la création d'un nouveau devis
-    console.log("Créer un nouveau devis");
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "draft":
-        return <Badge className="benaya-badge-neutral">Brouillon</Badge>;
-      case "sent":
-        return <Badge className="benaya-badge-primary">Envoyé</Badge>;
-      case "accepted":
-        return <Badge className="benaya-badge-success">Accepté</Badge>;
-      case "rejected":
-        return <Badge className="benaya-badge-error">Refusé</Badge>;
-      default:
-        return <Badge className="benaya-badge-neutral">—</Badge>;
-    }
+    // Naviguer vers la page de création de devis
+    navigate("/devis/edit/new");
   };
 
   return (

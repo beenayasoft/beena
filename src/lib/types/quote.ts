@@ -15,7 +15,7 @@ export type VATRate = 0 | 7 | 10 | 14 | 20;
 // Interface pour un élément de devis (ligne)
 export interface QuoteItem {
   id: string;
-  type: 'product' | 'service' | 'work' | 'chapter' | 'section';
+  type: 'product' | 'service' | 'work' | 'chapter' | 'section' | 'discount';
   parentId?: string; // Pour les éléments hiérarchiques
   position: number;
   reference?: string;
@@ -111,4 +111,4 @@ export interface QuoteStats {
   cancelled: number;
   totalAmount: number;
   acceptanceRate: number;
-} 
+}

@@ -6,6 +6,8 @@ import Index from "@/pages/Dashboard";
 import Agenda from "@/pages/Agenda";
 import Chantiers from "@/pages/Chantiers";
 import Devis from "@/pages/Devis";
+import QuoteEditor from "@/pages/QuoteEditor";
+import QuotePreview from "@/pages/QuotePreview";
 import Factures from "@/pages/Factures";
 import InvoiceDetail from "@/pages/InvoiceDetail";
 import InvoiceEditor from "@/pages/InvoiceEditor";
@@ -33,6 +35,8 @@ export default function App() {
             <Route path="agenda" element={<Agenda />} />
             <Route path="chantiers" element={<Chantiers />} />
             <Route path="devis" element={<Devis />} />
+            <Route path="devis/edit/:id" element={<QuoteEditor />} />
+            <Route path="devis/preview/:id" element={<QuotePreview />} />
             <Route path="factures" element={<Factures />} />
             <Route path="factures/:id" element={<InvoiceDetail />} />
             <Route path="factures/edit/:id" element={<InvoiceEditor />} />
