@@ -1,28 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Settings as SettingsIcon,
-  User,
-  Building,
-  Mail,
-  Bell,
-  Shield,
-  Palette,
-  Database,
-  DollarSign,
-  Calendar,
-  FileText,
-  Users,
-  Printer,
-  Cloud,
-  Globe,
-  Eye,
-  EyeOff,
-  Save,
-  CreditCard,
-  Receipt,
-  Hash,
-  FileText2,
-} from "lucide-react";
+import { Settings as SettingsIcon, User, Building, Mail, Bell, Shield, Palette, Database, DollarSign, Calendar, FileText, Users, Printer, Cloud, Globe, Eye, EyeOff, Save, CreditCard, Receipt, Hash, FileText as FileText2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
