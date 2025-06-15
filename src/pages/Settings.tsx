@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Settings as SettingsIcon,
   User,
@@ -17,6 +17,11 @@ import {
   Globe,
   Eye,
   EyeOff,
+  Save,
+  CreditCard,
+  Receipt,
+  Hash,
+  FileText2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +38,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
+// Import custom components
+import { CompanyIdentityForm } from "@/components/settings/CompanyIdentityForm";
+import { LegalFinancialForm } from "@/components/settings/LegalFinancialForm";
+import { VatRatesManagement } from "@/components/settings/VatRatesManagement";
+import { PaymentTermsManagement } from "@/components/settings/PaymentTermsManagement";
+import { NumberingFormatForm } from "@/components/settings/NumberingFormatForm";
+import { DocumentAppearanceForm } from "@/components/settings/DocumentAppearanceForm";
+
+// Define the settings sections
 const settingsSections = [
   {
     id: "profile",
@@ -43,9 +58,27 @@ const settingsSections = [
   },
   {
     id: "company",
-    label: "Entreprise",
+    label: "Mon Entreprise",
     icon: Building,
-    description: "Paramètres de votre entreprise",
+    description: "Informations de votre entreprise",
+  },
+  {
+    id: "fiscal",
+    label: "Fiscalité & Banque",
+    icon: CreditCard,
+    description: "Paramètres fiscaux et bancaires",
+  },
+  {
+    id: "numbering",
+    label: "Numérotation",
+    icon: Hash,
+    description: "Format des numéros de documents",
+  },
+  {
+    id: "documents",
+    label: "Apparence des documents",
+    icon: FileText2,
+    description: "Personnalisation des devis et factures",
   },
   {
     id: "notifications",
@@ -60,24 +93,6 @@ const settingsSections = [
     description: "Mot de passe et sécurité",
   },
   {
-    id: "appearance",
-    label: "Apparence",
-    icon: Palette,
-    description: "Thème et personnalisation",
-  },
-  {
-    id: "billing",
-    label: "Facturation",
-    icon: DollarSign,
-    description: "Modèles et paramètres de facturation",
-  },
-  {
-    id: "integrations",
-    label: "Intégrations",
-    icon: Cloud,
-    description: "Services tiers et API",
-  },
-  {
     id: "data",
     label: "Données",
     icon: Database,
@@ -86,199 +101,183 @@ const settingsSections = [
 ];
 
 export default function Settings() {
-  const [activeSection, setActiveSection] = useState("profile");
+  const [activeSection, setActiveSection] = useState("company");
   const [showPassword, setShowPassword] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const SettingsCard = ({
-    title,
-    description,
-    children,
-  }: {
-    title: string;
-    description?: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="benaya-card space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
-          {title}
-        </h3>
-        {description && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-            {description}
-          </p>
-        )}
+  // Company identity state
+  const [companyData, setCompanyData] = useState({
+    name: "Benaya Construction",
+    address: "123 Rue de la Construction",
+    postalCode: "75001",
+    city: "Paris",
+    country: "France",
+    phone: "+33 1 23 45 67 89",
+    email: "contact@benaya.fr",
+    logo: undefined,
+  });
+
+  // Legal and financial state
+  const [legalData, setLegalData] = useState({
+    legalForm: "SARL",
+    siret: "123 456 789 00012",
+    vatNumber: "FR12345678901",
+    iban: "FR76 1234 5678 9012 3456 7890 123",
+    bic: "ABCDEFGHIJK",
+    bankName: "Banque Exemple",
+  });
+
+  // VAT rates state
+  const [vatRates, setVatRates] = useState([
+    { id: "vat-1", label: "Taux normal", rate: 20, isDefault: true },
+    { id: "vat-2", label: "Taux intermédiaire", rate: 10, isDefault: true },
+    { id: "vat-3", label: "Taux réduit", rate: 5.5, isDefault: true },
+    { id: "vat-4", label: "Taux super réduit", rate: 2.1, isDefault: true },
+  ]);
+
+  // Payment terms state
+  const [paymentTerms, setPaymentTerms] = useState([
+    { id: "term-1", label: "À réception", description: "Paiement à réception de facture", days: 0, isDefault: true },
+    { id: "term-2", label: "30 jours", description: "Paiement à 30 jours nets", days: 30, isDefault: true },
+    { id: "term-3", label: "45 jours", description: "Paiement à 45 jours fin de mois", days: 45, isDefault: true },
+    { id: "term-4", label: "60 jours", description: "Paiement à 60 jours", days: 60, isDefault: true },
+  ]);
+
+  // Numbering format state
+  const [numberingSettings, setNumberingSettings] = useState({
+    quoteFormat: "DEV-{AAAA}-{XXXX}",
+    invoiceFormat: "FAC-{AAAA}-{XXXX}",
+    resetFrequency: "yearly" as "yearly" | "monthly" | "never",
+    nextQuoteNumber: 1,
+    nextInvoiceNumber: 1,
+  });
+
+  // Document appearance state
+  const [appearanceSettings, setAppearanceSettings] = useState({
+    documentTemplate: "modern" as "modern" | "classic" | "minimal",
+    primaryColor: "#1B333F",
+    showLogo: true,
+    showClientAddress: true,
+    showProjectInfo: true,
+    showNotes: true,
+    showPaymentTerms: true,
+    showBankDetails: true,
+    showSignatureArea: true,
+  });
+
+  // Mark form as dirty when changes are made
+  useEffect(() => {
+    setHasChanges(true);
+  }, [
+    companyData,
+    legalData,
+    vatRates,
+    paymentTerms,
+    numberingSettings,
+    appearanceSettings,
+  ]);
+
+  // Handle save button click
+  const handleSave = async () => {
+    setIsSaving(true);
+    
+    try {
+      // In a real app, this would be an API call to save the settings
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Show success message
+      toast({
+        title: "Paramètres mis à jour",
+        description: "Vos modifications ont été enregistrées avec succès.",
+      });
+      
+      // Reset dirty state
+      setHasChanges(false);
+    } catch (error) {
+      // Show error message
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'enregistrement des paramètres.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderCompanyIdentitySettings = () => (
+    <div className="space-y-6">
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Identité de l'entreprise</h3>
+        <CompanyIdentityForm 
+          companyData={companyData}
+          onChange={setCompanyData}
+        />
       </div>
-      <Separator />
-      <div className="space-y-4">{children}</div>
     </div>
   );
 
-  const renderProfileSettings = () => (
+  const renderFinancialSettings = () => (
     <div className="space-y-6">
-      <SettingsCard
-        title="Informations personnelles"
-        description="Modifiez vos informations personnelles"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="firstName">Prénom</Label>
-            <Input
-              id="firstName"
-              defaultValue="Jean"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lastName">Nom</Label>
-            <Input
-              id="lastName"
-              defaultValue="Dupont"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              defaultValue="jean@benaya.fr"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Téléphone</Label>
-            <Input
-              id="phone"
-              defaultValue="+212 6 12 34 56 78"
-              className="benaya-input"
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="bio">Biographie</Label>
-          <Textarea
-            id="bio"
-            placeholder="Quelques mots sur vous..."
-            className="benaya-input min-h-[100px]"
-          />
-        </div>
-      </SettingsCard>
+      {/* Legal and Financial Information */}
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Informations légales et bancaires</h3>
+        <LegalFinancialForm 
+          legalData={legalData}
+          onChange={setLegalData}
+        />
+      </div>
 
-      <SettingsCard
-        title="Photo de profil"
-        description="Votre photo apparaîtra dans l'interface"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-benaya-900 flex items-center justify-center">
-            <span className="text-white font-semibold text-lg">J</span>
-          </div>
-          <div className="space-y-2">
-            <Button variant="outline">Changer la photo</Button>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              PNG, JPG jusqu'à 2MB
-            </p>
-          </div>
-        </div>
-      </SettingsCard>
+      {/* VAT Rates */}
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Taux de TVA</h3>
+        <VatRatesManagement 
+          vatRates={vatRates}
+          onChange={setVatRates}
+        />
+      </div>
+
+      {/* Payment Terms */}
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Conditions de règlement</h3>
+        <PaymentTermsManagement 
+          paymentTerms={paymentTerms}
+          onChange={setPaymentTerms}
+        />
+      </div>
     </div>
   );
 
-  const renderCompanySettings = () => (
+  const renderNumberingSettings = () => (
     <div className="space-y-6">
-      <SettingsCard
-        title="Informations de l'entreprise"
-        description="Paramètres généraux de votre entreprise"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="companyName">Nom de l'entreprise</Label>
-            <Input
-              id="companyName"
-              defaultValue="Benaya Construction"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="siret">SIRET</Label>
-            <Input
-              id="siret"
-              defaultValue="12345678901234"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tva">N° TVA</Label>
-            <Input
-              id="tva"
-              defaultValue="FR12345678901"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="sector">Secteur d'activité</Label>
-            <Select defaultValue="construction">
-              <SelectTrigger className="benaya-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="construction">Construction</SelectItem>
-                <SelectItem value="renovation">Rénovation</SelectItem>
-                <SelectItem value="amenagement">Aménagement</SelectItem>
-                <SelectItem value="autre">Autre</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="address">Adresse</Label>
-          <Textarea
-            id="address"
-            defaultValue="123 Rue de la Construction, 20000 Casablanca, Maroc"
-            className="benaya-input"
-          />
-        </div>
-      </SettingsCard>
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Format de numérotation</h3>
+        <NumberingFormatForm 
+          numberingSettings={numberingSettings}
+          onChange={setNumberingSettings}
+        />
+      </div>
+    </div>
+  );
 
-      <SettingsCard
-        title="Logo de l'entreprise"
-        description="Utilisé sur les devis, factures et documents"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl bg-benaya-900 flex items-center justify-center">
-            <div className="w-10 h-10 text-white">
-              <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
-                <g fill="currentColor" opacity="0.9">
-                  <path d="M20 2L27.32 6.5V15.5L20 20L12.68 15.5V6.5L20 2Z" />
-                </g>
-                <path
-                  d="M15 20L18.5 23.5L25 17"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Button variant="outline">Changer le logo</Button>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              PNG, SVG recommandé, jusqu'à 5MB
-            </p>
-          </div>
-        </div>
-      </SettingsCard>
+  const renderDocumentAppearanceSettings = () => (
+    <div className="space-y-6">
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Apparence des documents</h3>
+        <DocumentAppearanceForm 
+          appearanceSettings={appearanceSettings}
+          onChange={setAppearanceSettings}
+        />
+      </div>
     </div>
   );
 
   const renderNotificationSettings = () => (
     <div className="space-y-6">
-      <SettingsCard
-        title="Notifications email"
-        description="Choisissez quand recevoir des emails"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Notifications email</h3>
+        
         <div className="space-y-4">
           {[
             {
@@ -321,12 +320,11 @@ export default function Settings() {
             </div>
           ))}
         </div>
-      </SettingsCard>
+      </div>
 
-      <SettingsCard
-        title="Notifications push"
-        description="Notifications dans l'application"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Notifications push</h3>
+        
         <div className="space-y-4">
           {[
             {
@@ -359,16 +357,15 @@ export default function Settings() {
             </div>
           ))}
         </div>
-      </SettingsCard>
+      </div>
     </div>
   );
 
   const renderSecuritySettings = () => (
     <div className="space-y-6">
-      <SettingsCard
-        title="Mot de passe"
-        description="Modifiez votre mot de passe"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Mot de passe</h3>
+        
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Mot de passe actuel</Label>
@@ -409,12 +406,11 @@ export default function Settings() {
             Mettre à jour le mot de passe
           </Button>
         </div>
-      </SettingsCard>
+      </div>
 
-      <SettingsCard
-        title="Authentification à deux facteurs"
-        description="Renforcez la sécurité de votre compte"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Authentification à deux facteurs</h3>
+        
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -427,12 +423,11 @@ export default function Settings() {
           </div>
           <Button variant="outline">Configurer l'authentificateur</Button>
         </div>
-      </SettingsCard>
+      </div>
 
-      <SettingsCard
-        title="Sessions actives"
-        description="Gérez vos sessions de connexion"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Sessions actives</h3>
+        
         <div className="space-y-3">
           {[
             {
@@ -473,292 +468,15 @@ export default function Settings() {
             </div>
           ))}
         </div>
-      </SettingsCard>
-    </div>
-  );
-
-  const renderAppearanceSettings = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Thème"
-        description="Personnalisez l'apparence de l'interface"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { id: "light", label: "Clair", preview: "bg-white border-2" },
-              {
-                id: "dark",
-                label: "Sombre",
-                preview: "bg-neutral-900 border-2",
-              },
-              {
-                id: "system",
-                label: "Système",
-                preview: "bg-gradient-to-br from-white to-neutral-900 border-2",
-              },
-            ].map((theme) => (
-              <div
-                key={theme.id}
-                className="cursor-pointer p-3 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-benaya-500 transition-colors"
-              >
-                <div
-                  className={cn(
-                    "w-full h-20 rounded mb-2",
-                    theme.preview,
-                    theme.id === "system" && "border-benaya-500",
-                  )}
-                ></div>
-                <p className="text-sm font-medium text-center">{theme.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Langue"
-        description="Choisissez votre langue préférée"
-      >
-        <Select defaultValue="fr">
-          <SelectTrigger className="benaya-input w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="fr">🇫🇷 Français</SelectItem>
-            <SelectItem value="en">🇺🇸 English</SelectItem>
-            <SelectItem value="ar">🇲🇦 العربية</SelectItem>
-            <SelectItem value="es">🇪🇸 Español</SelectItem>
-          </SelectContent>
-        </Select>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Format"
-        description="Formats d'affichage des données"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Format de date</Label>
-            <Select defaultValue="dd/mm/yyyy">
-              <SelectTrigger className="benaya-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
-                <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
-                <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Devise</Label>
-            <Select defaultValue="mad">
-              <SelectTrigger className="benaya-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mad">MAD (Dirham)</SelectItem>
-                <SelectItem value="eur">EUR (Euro)</SelectItem>
-                <SelectItem value="usd">USD (Dollar)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </SettingsCard>
-    </div>
-  );
-
-  const renderBillingSettings = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Modèles de documents"
-        description="Personnalisez vos devis et factures"
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="invoiceTemplate">Modèle de facture</Label>
-            <Select defaultValue="modern">
-              <SelectTrigger className="benaya-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="modern">Moderne</SelectItem>
-                <SelectItem value="classic">Classique</SelectItem>
-                <SelectItem value="minimal">Minimal</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="quoteTemplate">Modèle de devis</Label>
-            <Select defaultValue="professional">
-              <SelectTrigger className="benaya-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="professional">Professionnel</SelectItem>
-                <SelectItem value="detailed">Détaillé</SelectItem>
-                <SelectItem value="simple">Simple</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Numérotation automatique"
-        description="Configuration des numéros de documents"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="quotePrefix">Préfixe devis</Label>
-            <Input
-              id="quotePrefix"
-              defaultValue="DEV-"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="invoicePrefix">Préfixe facture</Label>
-            <Input
-              id="invoicePrefix"
-              defaultValue="FAC-"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="quoteCounter">Compteur devis</Label>
-            <Input
-              id="quoteCounter"
-              defaultValue="001"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="invoiceCounter">Compteur facture</Label>
-            <Input
-              id="invoiceCounter"
-              defaultValue="001"
-              className="benaya-input"
-            />
-          </div>
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Conditions de paiement"
-        description="Paramètres par défaut"
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="paymentTerms">Délai de paiement (jours)</Label>
-            <Input
-              id="paymentTerms"
-              defaultValue="30"
-              type="number"
-              className="benaya-input"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="paymentMethods">Modes de paiement acceptés</Label>
-            <Textarea
-              id="paymentMethods"
-              defaultValue="Virement bancaire, Chèque, Espèces"
-              className="benaya-input"
-            />
-          </div>
-        </div>
-      </SettingsCard>
-    </div>
-  );
-
-  const renderIntegrationsSettings = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Services de stockage"
-        description="Synchronisez vos documents"
-      >
-        <div className="space-y-4">
-          {[
-            {
-              name: "Google Drive",
-              icon: "🗄️",
-              connected: true,
-              description: "Sauvegarde automatique des documents",
-            },
-            {
-              name: "Dropbox",
-              icon: "📦",
-              connected: false,
-              description: "Synchronisation des fichiers",
-            },
-            {
-              name: "OneDrive",
-              icon: "☁️",
-              connected: false,
-              description: "Stockage Microsoft",
-            },
-          ].map((service) => (
-            <div
-              key={service.name}
-              className="flex items-center justify-between p-4 border border-neutral-200 dark:border-neutral-700 rounded-lg"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{service.icon}</span>
-                <div>
-                  <p className="font-medium">{service.name}</p>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    {service.description}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant={service.connected ? "outline" : "default"}
-                size="sm"
-              >
-                {service.connected ? "Déconnecter" : "Connecter"}
-              </Button>
-            </div>
-          ))}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="API et Webhooks"
-        description="Intégrations personnalisées"
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="apiKey">Clé API</Label>
-            <div className="flex gap-2">
-              <Input
-                id="apiKey"
-                defaultValue="bny_live_••••••••••••••••"
-                className="benaya-input flex-1"
-                disabled
-              />
-              <Button variant="outline">Régénérer</Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="webhookUrl">URL Webhook</Label>
-            <Input
-              id="webhookUrl"
-              placeholder="https://votre-site.com/webhook"
-              className="benaya-input"
-            />
-          </div>
-        </div>
-      </SettingsCard>
+      </div>
     </div>
   );
 
   const renderDataSettings = () => (
     <div className="space-y-6">
-      <SettingsCard
-        title="Sauvegarde automatique"
-        description="Protection de vos données"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Sauvegarde automatique</h3>
+        
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -777,12 +495,11 @@ export default function Settings() {
           </div>
           <Button variant="outline">Créer une sauvegarde maintenant</Button>
         </div>
-      </SettingsCard>
+      </div>
 
-      <SettingsCard
-        title="Exportation de données"
-        description="Téléchargez vos données"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Exportation de données</h3>
+        
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
@@ -806,12 +523,11 @@ export default function Settings() {
             ))}
           </div>
         </div>
-      </SettingsCard>
+      </div>
 
-      <SettingsCard
-        title="Suppression de compte"
-        description="Attention : cette action est irréversible"
-      >
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Suppression de compte</h3>
+        
         <div className="space-y-4">
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <h4 className="font-medium text-red-800 dark:text-red-200">
@@ -826,7 +542,75 @@ export default function Settings() {
             Supprimer mon compte
           </Button>
         </div>
-      </SettingsCard>
+      </div>
+    </div>
+  );
+
+  const renderProfileSettings = () => (
+    <div className="space-y-6">
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Informations personnelles</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">Prénom</Label>
+            <Input
+              id="firstName"
+              defaultValue="Jean"
+              className="benaya-input"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Nom</Label>
+            <Input
+              id="lastName"
+              defaultValue="Dupont"
+              className="benaya-input"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              defaultValue="jean@benaya.fr"
+              className="benaya-input"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Téléphone</Label>
+            <Input
+              id="phone"
+              defaultValue="+212 6 12 34 56 78"
+              className="benaya-input"
+            />
+          </div>
+        </div>
+        <div className="space-y-2 mt-4">
+          <Label htmlFor="bio">Biographie</Label>
+          <Textarea
+            id="bio"
+            placeholder="Quelques mots sur vous..."
+            className="benaya-input min-h-[100px]"
+          />
+        </div>
+      </div>
+
+      <div className="benaya-card">
+        <h3 className="font-medium text-lg mb-4">Photo de profil</h3>
+        
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-benaya-900 flex items-center justify-center">
+            <span className="text-white font-semibold text-lg">J</span>
+          </div>
+          <div className="space-y-2">
+            <Button variant="outline">Changer la photo</Button>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+              PNG, JPG jusqu'à 2MB
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -835,21 +619,21 @@ export default function Settings() {
       case "profile":
         return renderProfileSettings();
       case "company":
-        return renderCompanySettings();
+        return renderCompanyIdentitySettings();
+      case "fiscal":
+        return renderFinancialSettings();
+      case "numbering":
+        return renderNumberingSettings();
+      case "documents":
+        return renderDocumentAppearanceSettings();
       case "notifications":
         return renderNotificationSettings();
       case "security":
         return renderSecuritySettings();
-      case "appearance":
-        return renderAppearanceSettings();
-      case "billing":
-        return renderBillingSettings();
-      case "integrations":
-        return renderIntegrationsSettings();
       case "data":
         return renderDataSettings();
       default:
-        return renderProfileSettings();
+        return renderCompanyIdentitySettings();
     }
   };
 
@@ -917,19 +701,18 @@ export default function Settings() {
             {renderSectionContent()}
 
             {/* Save Button */}
-            <div className="benaya-card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    N'oubliez pas de sauvegarder vos modifications
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline">Annuler</Button>
-                  <Button className="benaya-button-primary">Enregistrer</Button>
-                </div>
+            {hasChanges && (
+              <div className="fixed bottom-6 right-6 z-50">
+                <Button 
+                  className="benaya-button-primary shadow-lg"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
+                </Button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

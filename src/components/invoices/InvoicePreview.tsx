@@ -1,11 +1,34 @@
+import React from "react";
 import { Invoice, InvoiceItem } from "@/lib/types/invoice";
 import { formatCurrency } from "@/lib/utils";
 
 interface InvoicePreviewProps {
   invoice: Invoice;
+  appearanceSettings?: {
+    documentTemplate?: "modern" | "classic" | "minimal";
+    primaryColor?: string;
+    showLogo?: boolean;
+    showClientAddress?: boolean;
+    showProjectInfo?: boolean;
+    showNotes?: boolean;
+    showPaymentTerms?: boolean;
+    showBankDetails?: boolean;
+  };
 }
 
-export function InvoicePreview({ invoice }: InvoicePreviewProps) {
+export function InvoicePreview({ 
+  invoice, 
+  appearanceSettings = {
+    documentTemplate: "modern",
+    primaryColor: "#1B333F",
+    showLogo: true,
+    showClientAddress: true,
+    showProjectInfo: true,
+    showNotes: true,
+    showPaymentTerms: true,
+    showBankDetails: true,
+  }
+}: InvoicePreviewProps) {
   // Format a date
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
@@ -59,7 +82,10 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
               <td 
                 colSpan={5} 
                 className="py-3 px-4 font-semibold text-benaya-900 border-b border-neutral-200"
-                style={{ paddingLeft: `${level * 20 + 16}px` }}
+                style={{ 
+                  paddingLeft: `${level * 20 + 16}px`,
+                  color: appearanceSettings.primaryColor
+                }}
               >
                 {item.designation}
               </td>
@@ -109,43 +135,81 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
     });
   };
 
+  // Get template-specific styles
+  const getTemplateStyles = () => {
+    switch (appearanceSettings.documentTemplate) {
+      case "classic":
+        return {
+          headerBg: "bg-neutral-100",
+          headerBorder: "border-b-2 border-neutral-300",
+          titleColor: appearanceSettings.primaryColor,
+          sectionTitleColor: appearanceSettings.primaryColor,
+          tableBorder: "border border-neutral-300",
+          tableHeaderBg: "bg-neutral-100",
+        };
+      case "minimal":
+        return {
+          headerBg: "bg-white",
+          headerBorder: "border-b border-neutral-200",
+          titleColor: appearanceSettings.primaryColor,
+          sectionTitleColor: appearanceSettings.primaryColor,
+          tableBorder: "border-t border-b border-neutral-200",
+          tableHeaderBg: "bg-white",
+        };
+      case "modern":
+      default:
+        return {
+          headerBg: "bg-white",
+          headerBorder: "border-b border-neutral-200",
+          titleColor: appearanceSettings.primaryColor,
+          sectionTitleColor: appearanceSettings.primaryColor,
+          tableBorder: "border-none",
+          tableHeaderBg: "bg-neutral-100",
+        };
+    }
+  };
+
+  const templateStyles = getTemplateStyles();
+
   return (
     <div className="w-full h-full bg-white text-black overflow-auto">
       {/* A4 container with proper aspect ratio */}
       <div className="w-full mx-auto" style={{ maxWidth: "210mm", minHeight: "297mm" }}>
         {/* Header */}
-        <div className="p-8 border-b border-neutral-200">
+        <div className={`p-8 ${templateStyles.headerBorder} ${templateStyles.headerBg}`}>
           <div className="flex justify-between">
             {/* Company Info */}
             <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-benaya-900 flex items-center justify-center">
-                  <div className="w-8 h-8 text-white">
-                    <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
-                      <g fill="currentColor" opacity="0.9">
-                        <path d="M20 2L27.32 6.5V15.5L20 20L12.68 15.5V6.5L20 2Z" />
-                        <path d="M8.66 9L16 4.5V13.5L8.66 18L1.34 13.5V4.5L8.66 9Z" />
-                        <path d="M31.34 9L38.66 4.5V13.5L31.34 18L24 13.5V4.5L31.34 9Z" />
-                        <path d="M8.66 31L16 26.5V35.5L8.66 40L1.34 35.5V26.5L8.66 31Z" />
-                        <path d="M31.34 31L38.66 26.5V35.5L31.34 40L24 35.5V26.5L31.34 31Z" />
-                        <path d="M20 38L27.32 33.5V24.5L20 20L12.68 24.5V33.5L20 38Z" />
-                      </g>
-                      <path
-                        d="M15 20L18.5 23.5L25 17"
-                        stroke="white"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
-                    </svg>
+              {appearanceSettings.showLogo && (
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: appearanceSettings.primaryColor }}>
+                    <div className="w-8 h-8 text-white">
+                      <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
+                        <g fill="currentColor" opacity="0.9">
+                          <path d="M20 2L27.32 6.5V15.5L20 20L12.68 15.5V6.5L20 2Z" />
+                          <path d="M8.66 9L16 4.5V13.5L8.66 18L1.34 13.5V4.5L8.66 9Z" />
+                          <path d="M31.34 9L38.66 4.5V13.5L31.34 18L24 13.5V4.5L31.34 9Z" />
+                          <path d="M8.66 31L16 26.5V35.5L8.66 40L1.34 35.5V26.5L8.66 31Z" />
+                          <path d="M31.34 31L38.66 26.5V35.5L31.34 40L24 35.5V26.5L31.34 31Z" />
+                          <path d="M20 38L27.32 33.5V24.5L20 20L12.68 24.5V33.5L20 38Z" />
+                        </g>
+                        <path
+                          d="M15 20L18.5 23.5L25 17"
+                          stroke="white"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold" style={{ color: appearanceSettings.primaryColor }}>Benaya Construction</h1>
+                    <p className="text-sm text-neutral-600">Votre partenaire en construction</p>
                   </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-benaya-900">Benaya Construction</h1>
-                  <p className="text-sm text-neutral-600">Votre partenaire en construction</p>
-                </div>
-              </div>
+              )}
               <div className="text-sm text-neutral-600 mt-2">
                 <p>123 Rue de la Construction</p>
                 <p>75001 Paris, France</p>
@@ -157,7 +221,7 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
 
             {/* Invoice Info */}
             <div className="text-right">
-              <div className="text-3xl font-bold text-benaya-900 mb-2">FACTURE</div>
+              <div className="text-3xl font-bold mb-2" style={{ color: appearanceSettings.primaryColor }}>FACTURE</div>
               <div className="text-xl font-semibold mb-4">
                 {invoice.number || "Brouillon"}
               </div>
@@ -182,48 +246,52 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
         </div>
 
         {/* Client and Project Info */}
-        <div className="p-8 border-b border-neutral-200">
-          <div className="flex justify-between">
-            {/* Client Info */}
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-benaya-900">Facturer à</h2>
-              <div className="text-sm">
-                <p className="font-medium">{invoice.clientName || "Client non spécifié"}</p>
-                {invoice.clientAddress && (
-                  <div className="text-neutral-600 whitespace-pre-line">
-                    {invoice.clientAddress}
+        {(appearanceSettings.showClientAddress || appearanceSettings.showProjectInfo) && (
+          <div className="p-8 border-b border-neutral-200">
+            <div className="flex justify-between">
+              {/* Client Info */}
+              {appearanceSettings.showClientAddress && (
+                <div className="space-y-2">
+                  <h2 className="text-lg font-semibold" style={{ color: appearanceSettings.primaryColor }}>Facturer à</h2>
+                  <div className="text-sm">
+                    <p className="font-medium">{invoice.clientName || "Client non spécifié"}</p>
+                    {invoice.clientAddress && (
+                      <div className="text-neutral-600 whitespace-pre-line">
+                        {invoice.clientAddress}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Project Info */}
-            {invoice.projectName && (
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-benaya-900">Projet</h2>
-                <div className="text-sm">
-                  <p className="font-medium">{invoice.projectName}</p>
-                  {invoice.projectAddress && (
-                    <div className="text-neutral-600 whitespace-pre-line">
-                      {invoice.projectAddress}
-                    </div>
-                  )}
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Project Info */}
+              {appearanceSettings.showProjectInfo && invoice.projectName && (
+                <div className="space-y-2">
+                  <h2 className="text-lg font-semibold" style={{ color: appearanceSettings.primaryColor }}>Projet</h2>
+                  <div className="text-sm">
+                    <p className="font-medium">{invoice.projectName}</p>
+                    {invoice.projectAddress && (
+                      <div className="text-neutral-600 whitespace-pre-line">
+                        {invoice.projectAddress}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Invoice Items */}
         <div className="p-8">
-          <table className="w-full border-collapse">
+          <table className={`w-full border-collapse ${templateStyles.tableBorder}`}>
             <thead>
-              <tr className="bg-neutral-100 text-benaya-900">
-                <th className="py-3 px-4 text-left font-semibold border-b border-neutral-300">Désignation</th>
-                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300">Quantité</th>
-                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300">Prix unitaire</th>
-                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300">TVA</th>
-                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300">Total HT</th>
+              <tr className={templateStyles.tableHeaderBg}>
+                <th className="py-3 px-4 text-left font-semibold border-b border-neutral-300" style={{ color: appearanceSettings.primaryColor }}>Désignation</th>
+                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300" style={{ color: appearanceSettings.primaryColor }}>Quantité</th>
+                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300" style={{ color: appearanceSettings.primaryColor }}>Prix unitaire</th>
+                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300" style={{ color: appearanceSettings.primaryColor }}>TVA</th>
+                <th className="py-3 px-4 text-right font-semibold border-b border-neutral-300" style={{ color: appearanceSettings.primaryColor }}>Total HT</th>
               </tr>
             </thead>
             <tbody>
@@ -242,7 +310,7 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
                 <span className="font-medium">Total TVA:</span>
                 <span>{formatCurrency(invoice.totalVAT || 0)} MAD</span>
               </div>
-              <div className="flex justify-between py-2 text-lg font-bold text-benaya-900">
+              <div className="flex justify-between py-2 text-lg font-bold" style={{ color: appearanceSettings.primaryColor }}>
                 <span>Total TTC:</span>
                 <span>{formatCurrency(invoice.totalTTC || 0)} MAD</span>
               </div>
@@ -253,27 +321,31 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
         {/* Footer */}
         <div className="p-8 mt-auto">
           {/* Payment Info */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-benaya-900 mb-2">Conditions de paiement</h3>
-            <p className="text-sm text-neutral-600">
-              {invoice.termsAndConditions || "Paiement à 30 jours."}
-            </p>
-          </div>
+          {appearanceSettings.showPaymentTerms && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Conditions de paiement</h3>
+              <p className="text-sm text-neutral-600">
+                {invoice.termsAndConditions || "Paiement à 30 jours."}
+              </p>
+            </div>
+          )}
 
           {/* Bank Details */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-benaya-900 mb-2">Coordonnées bancaires</h3>
-            <div className="text-sm text-neutral-600">
-              <p>IBAN: FR76 1234 5678 9012 3456 7890 123</p>
-              <p>BIC: ABCDEFGHIJK</p>
-              <p>Banque: Banque Exemple</p>
+          {appearanceSettings.showBankDetails && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Coordonnées bancaires</h3>
+              <div className="text-sm text-neutral-600">
+                <p>IBAN: FR76 1234 5678 9012 3456 7890 123</p>
+                <p>BIC: ABCDEFGHIJK</p>
+                <p>Banque: Banque Exemple</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Notes */}
-          {invoice.notes && (
+          {appearanceSettings.showNotes && invoice.notes && (
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-benaya-900 mb-2">Notes</h3>
+              <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Notes</h3>
               <p className="text-sm text-neutral-600">{invoice.notes}</p>
             </div>
           )}
