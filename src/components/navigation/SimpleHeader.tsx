@@ -14,9 +14,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 export function SimpleHeader() {
   const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Fonction pour gérer la déconnexion
+  const handleLogout = () => {
+    logout();
+    navigate("/auth");
+  };
 
   return (
     <header className="h-16 benaya-glass border-b border-neutral-200 dark:border-neutral-700 px-6 flex items-center justify-between">
@@ -100,18 +110,18 @@ export function SimpleHeader() {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none text-neutral-900 dark:text-white">
-                  Jean Dupont
+                  {user ? `${user.first_name} ${user.last_name}` : "Utilisateur"}
                 </p>
                 <p className="text-xs leading-none text-neutral-600 dark:text-neutral-400">
-                  jean@benaya.fr
+                  {user?.email || "utilisateur@benaya.fr"}
                 </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Mon profil</DropdownMenuItem>
-            <DropdownMenuItem>Paramètres</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>Mon profil</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>Paramètres</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Se déconnecter</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>Se déconnecter</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

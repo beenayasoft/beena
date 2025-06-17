@@ -8,6 +8,7 @@ import {
   Moon,
   Sun,
   Monitor,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   className?: string;
@@ -32,6 +35,20 @@ interface HeaderProps {
 
 export function Header({ className }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Fonction pour gérer la déconnexion
+  const handleLogout = () => {
+    logout();
+    navigate("/auth");
+  };
+
+  // Obtenir les initiales de l'utilisateur pour l'avatar
+  const getInitials = () => {
+    if (!user) return "U";
+    return `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}` || user.email?.[0] || "U";
+  };
 
   return (
     <header
@@ -113,9 +130,9 @@ export function Header({ className }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/avatars/01.png" alt="@jean" />
+                <AvatarImage src="/avatars/01.png" alt={user?.username || "@user"} />
                 <AvatarFallback className="bg-benaya-100 dark:bg-benaya-900 text-benaya-700 dark:text-benaya-300">
-                  J
+                  {getInitials()}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -123,9 +140,11 @@ export function Header({ className }: HeaderProps) {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Jean</p>
+                <p className="text-sm font-medium leading-none">
+                  {user ? `${user.first_name} ${user.last_name}` : "Utilisateur"}
+                </p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  jean@benaya.fr
+                  {user?.email || "utilisateur@benaya.fr"}
                 </p>
               </div>
             </DropdownMenuLabel>
@@ -150,12 +169,15 @@ export function Header({ className }: HeaderProps) {
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Paramètres</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Se déconnecter</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Se déconnecter</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

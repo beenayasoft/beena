@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { MainLayout } from "@/layouts/MainLayout";
 import Auth from "@/pages/Auth";
@@ -19,43 +19,89 @@ import NotFound from "@/pages/NotFound";
 import Tiers from "@/pages/Tiers";
 import TierDetail from "@/pages/TierDetail";
 import WorkLibrary from "@/pages/WorkLibrary";
-import { Users } from "lucide-react";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ReactNode } from "react";
+
+// Composant pour protéger les routes
+interface ProtectedRouteProps {
+  children: ReactNode;
+}
+
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+  
+  // Afficher un indicateur de chargement pendant la vérification de l'authentification
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Chargement...</div>;
+  }
+  
+  // Rediriger vers la page d'authentification si l'utilisateur n'est pas connecté
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+  
+  // Afficher le contenu protégé si l'utilisateur est authentifié
+  return <>{children}</>;
+};
+
+// Composant pour rediriger les utilisateurs déjà authentifiés depuis la page d'authentification
+const AuthRoute = ({ children }: { children: ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Chargement...</div>;
+  }
+  
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+};
 
 export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <BrowserRouter>
-        <Routes>
-          {/* Auth routes */}
-          <Route path="/auth" element={<Auth />} />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Auth routes - rediriger si déjà connecté */}
+            <Route path="/auth" element={
+              <AuthRoute>
+                <Auth />
+              </AuthRoute>
+            } />
 
-          {/* Main app routes */}
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Index />} />
-            <Route path="agenda" element={<Agenda />} />
-            <Route path="chantiers" element={<Chantiers />} />
-            <Route path="devis" element={<Devis />} />
-            <Route path="devis/edit/:id" element={<QuoteEditor />} />
-            <Route path="devis/preview/:id" element={<QuotePreview />} />
-            <Route path="factures" element={<Factures />} />
-            <Route path="factures/:id" element={<InvoiceDetail />} />
-            <Route path="factures/edit/:id" element={<InvoiceEditor />} />
-            <Route path="factures/preview/:id" element={<InvoicePreview />} />
-            <Route path="interventions" element={<Interventions />} />
-            <Route path="stock" element={<Stock />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="tiers" element={<Tiers />} />
-            <Route path="tiers/:id" element={<TierDetail />} />
-            <Route path="bibliotheque-ouvrages" element={<WorkLibrary />} />
+            {/* Main app routes - protégées */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Index />} />
+              <Route path="agenda" element={<Agenda />} />
+              <Route path="chantiers" element={<Chantiers />} />
+              <Route path="devis" element={<Devis />} />
+              <Route path="devis/edit/:id" element={<QuoteEditor />} />
+              <Route path="devis/preview/:id" element={<QuotePreview />} />
+              <Route path="factures" element={<Factures />} />
+              <Route path="factures/:id" element={<InvoiceDetail />} />
+              <Route path="factures/edit/:id" element={<InvoiceEditor />} />
+              <Route path="factures/preview/:id" element={<InvoicePreview />} />
+              <Route path="interventions" element={<Interventions />} />
+              <Route path="stock" element={<Stock />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="tiers" element={<Tiers />} />
+              <Route path="tiers/:id" element={<TierDetail />} />
+              <Route path="bibliotheque-ouvrages" element={<WorkLibrary />} />
+            </Route>
 
-            {/* Placeholder pages */}
-            
-          </Route>
-
-          {/* 404 route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+            {/* 404 route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

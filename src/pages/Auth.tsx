@@ -1,31 +1,127 @@
 import { useState } from "react";
-import { Eye, EyeOff, Mail, Lock, User, Building } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Building, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type AuthMode = "login" | "signup";
 
 export default function Auth() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const { login, register, error } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  
+  // Récupérer l'URL de redirection si elle existe
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    name: "",
+    password2: "",
+    first_name: "",
+    last_name: "",
+    username: "",
     company: "",
     acceptTerms: false,
   });
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Réinitialiser les erreurs lorsque l'utilisateur modifie un champ
+    setFormError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Séparer le nom complet en prénom et nom
+  const splitName = (fullName: string) => {
+    const parts = fullName.trim().split(' ');
+    if (parts.length === 1) {
+      return { first_name: parts[0], last_name: '' };
+    }
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ');
+    return { first_name: firstName, last_name: lastName };
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
+    setIsSubmitting(true);
+    setFormError(null);
+    
+    try {
+      if (mode === "login") {
+        // Connexion
+        await login({
+          email: formData.email,
+          password: formData.password,
+        });
+        
+        // Afficher un toast de succès
+        toast({
+          title: "Connexion réussie",
+          description: "Bienvenue sur votre espace Benaya",
+        });
+        
+        // Rediriger vers la page précédente ou le tableau de bord
+        navigate(from);
+      } else {
+        // Inscription
+        // Vérifier que les mots de passe correspondent
+        if (formData.password !== formData.password2) {
+          setFormError("Les mots de passe ne correspondent pas");
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Vérifier que les conditions sont acceptées
+        if (!formData.acceptTerms) {
+          setFormError("Vous devez accepter les conditions d'utilisation");
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Séparer le nom complet en prénom et nom
+        const { first_name, last_name } = splitName(formData.first_name);
+        
+        // Créer un nom d'utilisateur à partir de l'email si non fourni
+        const username = formData.username || formData.email.split('@')[0];
+        
+        // Préparer les données pour l'inscription
+        await register({
+          email: formData.email,
+          username: username,
+          password: formData.password,
+          password2: formData.password2,
+          first_name: first_name,
+          last_name: last_name,
+          company: formData.company,
+        });
+        
+        // Afficher un toast de succès
+        toast({
+          title: "Inscription réussie",
+          description: "Votre compte a été créé avec succès",
+        });
+        
+        // Rediriger vers le tableau de bord
+        navigate("/");
+      }
+    } catch (error: any) {
+      // Afficher l'erreur
+      setFormError(error.response?.data?.detail || error.message || "Une erreur s'est produite");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -149,13 +245,23 @@ export default function Auth() {
             </p>
           </div>
 
+          {/* Afficher les erreurs */}
+          {(formError || error) && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {formError || error}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Auth Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Name Field (Signup only) */}
             {mode === "signup" && (
               <div className="space-y-2">
                 <Label
-                  htmlFor="name"
+                  htmlFor="first_name"
                   className="text-neutral-900 dark:text-white"
                 >
                   Nom complet
@@ -163,11 +269,11 @@ export default function Auth() {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
                   <Input
-                    id="name"
+                    id="first_name"
                     type="text"
                     placeholder="Jean Dupont"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    value={formData.first_name}
+                    onChange={(e) => handleInputChange("first_name", e.target.value)}
                     className="pl-10 benaya-input"
                     required
                   />
@@ -260,6 +366,32 @@ export default function Auth() {
               </div>
             </div>
 
+            {/* Confirm Password Field (Signup only) */}
+            {mode === "signup" && (
+              <div className="space-y-2">
+                <Label
+                  htmlFor="password2"
+                  className="text-neutral-900 dark:text-white"
+                >
+                  Confirmer le mot de passe
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                  <Input
+                    id="password2"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={formData.password2}
+                    onChange={(e) =>
+                      handleInputChange("password2", e.target.value)
+                    }
+                    className="pl-10 pr-10 benaya-input"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Terms (Signup only) */}
             {mode === "signup" && (
               <div className="flex items-center space-x-2">
@@ -290,8 +422,18 @@ export default function Auth() {
             <Button
               type="submit"
               className="w-full benaya-button-primary text-lg py-6"
+              disabled={isSubmitting}
             >
-              {mode === "login" ? "Se connecter" : "Créer mon compte"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Chargement...
+                </>
+              ) : mode === "login" ? (
+                "Se connecter"
+              ) : (
+                "Créer mon compte"
+              )}
             </Button>
 
             {/* Toggle Mode */}
@@ -304,7 +446,10 @@ export default function Auth() {
                   type="button"
                   variant="link"
                   className="text-benaya-900 hover:underline p-1 ml-1"
-                  onClick={() => setMode(mode === "login" ? "signup" : "login")}
+                  onClick={() => {
+                    setMode(mode === "login" ? "signup" : "login");
+                    setFormError(null);
+                  }}
                 >
                   {mode === "login" ? "Créer un compte" : "Se connecter"}
                 </Button>

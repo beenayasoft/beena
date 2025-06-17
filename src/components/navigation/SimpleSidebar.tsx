@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   FileText,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const mainNavItems = [
   {
@@ -81,8 +82,16 @@ const mainNavItems = [
 export function SimpleSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const isActive = (href: string) => location.pathname === href;
+
+  // Fonction pour gérer la déconnexion
+  const handleLogout = () => {
+    logout();
+    navigate("/auth");
+  };
 
   return (
     <div
@@ -131,10 +140,10 @@ export function SimpleSidebar() {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-benaya-900 dark:text-white">
-                  SM2i
+                  {user?.company || "SM2i"}
                 </h1>
                 <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                  Société BTP
+                  {user ? `${user.first_name} ${user.last_name}` : "Société BTP"}
                 </p>
               </div>
             </div>
@@ -243,18 +252,17 @@ export function SimpleSidebar() {
             )}
           </div>
 
-          {/* Auth Link */}
+          {/* Déconnexion */}
           {!isCollapsed && (
-            <Link to="/auth">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 text-xs"
-              >
-                <LogOut className="w-4 h-4" />
-                Voir page de connexion
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4" />
+              Se déconnecter
+            </Button>
           )}
         </div>
       </nav>
