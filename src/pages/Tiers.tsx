@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
-  TierDialog,
   TiersList,
   TiersStats,
   TiersSearch,
@@ -14,10 +13,15 @@ import {
   initialTiers,
   DeleteConfirmDialog
 } from "@/components/tiers";
+import { TierDialog } from "@/components/tiers/TierDialog";
+import { tiersApi } from "@/lib/api/tiers";
+import { TierCreateFlow } from "@/components/tiers/TierCreateFlow";
 
 export default function Tiers() {
   const navigate = useNavigate();
-  const [tiers, setTiers] = useState<Tier[]>(initialTiers);
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("tous");
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -25,6 +29,7 @@ export default function Tiers() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tierToDelete, setTierToDelete] = useState<Tier | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0); // État pour forcer le rafraîchissement
+  const [createOpen, setCreateOpen] = useState(false); // Pour le workflow de création
 
   const { countTiersByType, filterTiers, generateTabs } = useTierUtils();
 
@@ -37,58 +42,59 @@ export default function Tiers() {
   // Filtrer les tiers en fonction de l'onglet actif et de la recherche
   const filteredTiers = filterTiers(tiers, activeTab, searchQuery);
 
+  // Fonction pour charger les tiers depuis l'API
+  const loadTiers = async () => {
+    try {
+      setLoading(true);
+      console.log("Tiers.tsx: Chargement des tiers...");
+      
+      // Utiliser l'endpoint spécialement conçu pour le frontend
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/tiers/tiers/frontend_format/`, 
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+      
+      const data = await response.json();
+      console.log("Tiers.tsx: Données reçues de l'API frontend_format", data);
+      
+      // Les données sont peut-être dans results si c'est paginé
+      const tiersData = data.results || data;
+      
+      if (!tiersData || !Array.isArray(tiersData) || tiersData.length === 0) {
+        console.log("Tiers.tsx: Aucun tier trouvé");
+        setTiers([]);
+        return;
+      }
+      
+      // Les données sont déjà au bon format pour le frontend
+      setTiers(tiersData);
+      setError(null);
+    } catch (err) {
+      setError("Erreur lors du chargement des tiers");
+      console.error("Tiers.tsx: Erreur critique", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Forcer le rafraîchissement de la page après les actions
   useEffect(() => {
     // Ce useEffect sera déclenché chaque fois que forceUpdate change
     // Il ne fait rien directement, mais force React à re-rendre le composant
   }, [forceUpdate]);
 
+  // Charger les tiers au montage du composant
+  useEffect(() => {
+    loadTiers();
+  }, []);
+
   // Gérer la soumission du formulaire d'ajout/édition
-  const handleSubmit = (values: TierFormValues) => {
-    if (editingTier) {
-      // Mode édition
-      const updatedTiers = tiers.map((tier) => {
-        if (tier.id === editingTier.id) {
-          return {
-            ...tier,
-            name: values.name,
-            type: values.types,
-            contact: values.contact,
-            email: values.email,
-            phone: values.phone,
-            address: values.address,
-            siret: values.siret || "",
-            status: values.status,
-          };
-        }
-        return tier;
-      });
-      setTiers(updatedTiers);
-    } else {
-      // Mode création
-      const newTier: Tier = {
-        id: (tiers.length + 1).toString(),
-        name: values.name,
-        type: values.types,
-        contact: values.contact,
-        email: values.email,
-        phone: values.phone,
-        address: values.address,
-        siret: values.siret || "",
-        status: values.status,
-      };
-      setTiers([...tiers, newTier]);
-    }
-    
-    // Fermer la modale
-    setDialogOpen(false);
-    // Réinitialiser l'état d'édition
-    setTimeout(() => {
-      setEditingTier(undefined);
-      // Forcer le rafraîchissement
-      setForceUpdate(prev => prev + 1);
-    }, 100);
-  };
+
 
   // Gérer la fermeture de la modale d'édition
   const handleDialogClose = (open: boolean) => {
@@ -109,23 +115,25 @@ export default function Tiers() {
   // Gérer la suppression d'un tiers
   const handleDelete = (tier: Tier) => {
     setTierToDelete({...tier});
-    setTimeout(() => {
-      setDeleteDialogOpen(true);
-    }, 50);
+    setDeleteDialogOpen(true);
   };
 
   // Confirmer la suppression d'un tiers
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (tierToDelete) {
-      setTiers(tiers.filter((t) => t.id !== tierToDelete.id));
+      try {
+        setLoading(true);
+        await tiersApi.deleteTier(tierToDelete.id);
+        setTiers(prev => prev.filter(t => t.id !== tierToDelete.id));
+        setDeleteDialogOpen(false);
+        setTierToDelete(null);
+      } catch (err) {
+        setError("Erreur lors de la suppression du tier");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     }
-    // Fermer la modale et réinitialiser l'état
-    setDeleteDialogOpen(false);
-    setTimeout(() => {
-      setTierToDelete(null);
-      // Forcer le rafraîchissement
-      setForceUpdate(prev => prev + 1);
-    }, 100);
   };
 
   // Gérer la fermeture de la modale de suppression
@@ -176,23 +184,28 @@ export default function Tiers() {
           <div>
             <h1 className="text-2xl font-bold">Gestion des Tiers</h1>
             <p className="text-benaya-100 mt-1">
-              Gérez vos clients, fournisseurs, partenaires et sous-traitants
+              Gérez vos clients, fournisseurs, prospects et sous-traitants
             </p>
           </div>
           <Button 
             className="gap-2 bg-white text-benaya-900 hover:bg-white/90"
-            onClick={() => {
-              setEditingTier(undefined);
-              setTimeout(() => {
-                setDialogOpen(true);
-              }, 50);
-            }}
+            onClick={() => setCreateOpen(true)}
           >
             <Plus className="w-4 h-4" />
             Nouveau tiers
           </Button>
         </div>
       </div>
+
+      {/* Modale de création de tiers (workflow) */}
+      <TierCreateFlow
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={() => {
+          // Recharger la liste des tiers après création
+          loadTiers();
+        }}
+      />
 
       {/* Stats */}
       <TiersStats counts={countByType} />
@@ -228,7 +241,10 @@ export default function Tiers() {
         key={`dialog-${editingTier?.id || 'new'}-${forceUpdate}`}
         open={dialogOpen}
         onOpenChange={handleDialogClose}
-        onSubmit={handleSubmit}
+        onSuccess={() => {
+          // Recharger la liste des tiers après modification
+          loadTiers();
+        }}
         tier={editingTier}
         isEditing={!!editingTier}
       />
