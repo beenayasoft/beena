@@ -19,6 +19,8 @@ import NotFound from "@/pages/NotFound";
 import Tiers from "@/pages/Tiers";
 import TierDetail from "@/pages/TierDetail";
 import WorkLibrary from "@/pages/WorkLibrary";
+import Opportunities from "@/pages/Opportunities";
+import OpportunityDetail from "@/pages/OpportunityDetail";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ReactNode } from "react";
 
@@ -81,6 +83,8 @@ export default function App() {
             }>
               <Route index element={<Index />} />
               <Route path="agenda" element={<Agenda />} />
+              <Route path="opportunities" element={<Opportunities />} />
+              <Route path="opportunities/:id" element={<OpportunityDetail />} />
               <Route path="chantiers" element={<Chantiers />} />
               <Route path="devis" element={<Devis />} />
               <Route path="devis/edit/:id" element={<QuoteEditor />} />
