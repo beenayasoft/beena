@@ -1,5 +1,5 @@
 import { Opportunity, OpportunityStatus, OpportunitySource, LossReason, OpportunityStats } from '../types/opportunity';
-import { initialTiers } from '@/components/tiers';
+import { initialTiers } from '@/lib/mock/tiers';
 
 // Données mockées pour les opportunités
 export const mockOpportunities: Opportunity[] = [
