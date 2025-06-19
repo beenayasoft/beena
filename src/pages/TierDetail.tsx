@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, Mail, MapPin, Building, User, Tag, Activity, Users, Home } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Building, User, Tag, Activity, Users, Home, Plus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,12 +50,12 @@ import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { toast } from "@/hooks/use-toast";
-
+import { initialTiers } from "@/lib/mock/tiers";
 
 export default function TierDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getTypeBadge } = useTierUtils();
+  const { getTypeBadge, getStatusBadge } = useTierUtils();
   
   // Fonctions utilitaires pour les badges et l'affichage
   const getBadgeVariant = (flag: string) => {
@@ -95,7 +95,6 @@ export default function TierDetail() {
   const [tier, setTier] = useState<Tier | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const { getTypeBadge, getStatusBadge } = useTierUtils();
   
   // États pour les modales d'édition spécialisées
   const [editEntrepriseDialogOpen, setEditEntrepriseDialogOpen] = useState(false);
@@ -123,6 +122,8 @@ export default function TierDetail() {
       setError("ID du tier manquant");
       setLoading(false);
       return;
+    }
+    
     // Dans une application réelle, vous feriez un appel API ici
     // Pour l'instant, on utilise les données mockées
     const foundTier = initialTiers.find(t => t.id === id);
@@ -193,7 +194,6 @@ export default function TierDetail() {
     }
   };
 
-  if (loading) {
   // Créer une nouvelle opportunité pour ce tiers
   const handleCreateOpportunity = () => {
     setFormDialogOpen(true);
@@ -218,7 +218,7 @@ export default function TierDetail() {
     navigate("/opportunities");
   };
 
-  if (!tier) {
+  if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center">
@@ -341,8 +341,6 @@ export default function TierDetail() {
                     Relations
                   </TabsTrigger>
                 </TabsList>
-                
-                
               </div>
 
               {/* Contenu des onglets */}
@@ -601,6 +599,78 @@ export default function TierDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Actions et résumé */}
+            {tier && (
+              <Card className="benaya-card mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">Actions rapides</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    className="w-full gap-2 benaya-button-primary" 
+                    onClick={handleCreateOpportunity}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Créer une opportunité
+                  </Button>
+                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`tel:${tier.phone.replace(/\s/g, "")}`)}>
+                    <Phone className="h-4 w-4" />
+                    Appeler
+                  </Button>
+                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`mailto:${tier.email}`)}>
+                    <Mail className="h-4 w-4" />
+                    Envoyer un email
+                  </Button>
+                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(tier.address)}`)}>
+                    <MapPin className="h-4 w-4" />
+                    Voir sur la carte
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Opportunités */}
+            {tier && (
+              <Card className="benaya-card mt-6">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Opportunités</CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleCreateOpportunity}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nouvelle opportunité
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {opportunities.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {opportunities.map(opportunity => (
+                        <OpportunityCard
+                          key={opportunity.id}
+                          opportunity={opportunity}
+                          onView={() => navigate(`/opportunities/${opportunity.id}`)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-neutral-500">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4" />
+                      <p className="mb-4">Aucune opportunité pour ce tiers</p>
+                      <Button 
+                        onClick={handleCreateOpportunity}
+                        className="gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Créer une opportunité
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
@@ -623,98 +693,31 @@ export default function TierDetail() {
           />
         </>
       )}
-    </>
-        {/* Actions et résumé */}
-        <Card className="benaya-card">
-          <CardHeader>
-            <CardTitle className="text-lg">Actions rapides</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button 
-              className="w-full gap-2 benaya-button-primary" 
-              onClick={handleCreateOpportunity}
-            >
-              <BarChart3 className="h-4 w-4" />
-              Créer une opportunité
-            </Button>
-            <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`tel:${tier.phone.replace(/\s/g, "")}`)}>
-              <Phone className="h-4 w-4" />
-              Appeler
-            </Button>
-            <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`mailto:${tier.email}`)}>
-              <Mail className="h-4 w-4" />
-              Envoyer un email
-            </Button>
-            <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(tier.address)}`)}>
-              <MapPin className="h-4 w-4" />
-              Voir sur la carte
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Opportunités */}
-        <Card className="benaya-card md:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Opportunités</CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleCreateOpportunity}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nouvelle opportunité
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {opportunities.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {opportunities.map(opportunity => (
-                  <OpportunityCard
-                    key={opportunity.id}
-                    opportunity={opportunity}
-                    onView={() => navigate(`/opportunities/${opportunity.id}`)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-neutral-500">
-                <BarChart3 className="w-12 h-12 mx-auto mb-4" />
-                <p className="mb-4">Aucune opportunité pour ce tiers</p>
-                <Button 
-                  onClick={handleCreateOpportunity}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Créer une opportunité
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Formulaire de création d'opportunité */}
-      <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Nouvelle opportunité</DialogTitle>
-            <DialogDescription>
-              Créez une nouvelle opportunité pour {tier.name}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <OpportunityForm
-            opportunity={{
-              tierId: tier.id,
-              tierName: tier.name,
-              tierType: tier.type,
-            }}
-            onSubmit={handleFormSubmit}
-            onCancel={() => setFormDialogOpen(false)}
-            isEditing={false}
-          />
-        </DialogContent>
-      </Dialog>
-    </div>
+      {tier && (
+        <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Nouvelle opportunité</DialogTitle>
+              <DialogDescription>
+                Créez une nouvelle opportunité pour {tier.name}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <OpportunityForm
+              opportunity={{
+                tierId: tier.id,
+                tierName: tier.name,
+                tierType: tier.type,
+              }}
+              onSubmit={handleFormSubmit}
+              onCancel={() => setFormDialogOpen(false)}
+              isEditing={false}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
