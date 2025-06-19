@@ -33,7 +33,7 @@ export const transformEntrepriseToTier = (values: EntrepriseFormValues, existing
     phone: contactPrincipal?.telephone || '',
     address,
     siret: values.siret || '',
-    status: values.status || 'active',
+    status: (values.status === 'inactive' ? 'inactive' : 'active') as 'active' | 'inactive',
     entityType: 'entreprise', // CRITIQUE : Spécifier explicitement le type d'entité
   };
 
@@ -67,7 +67,7 @@ export const transformParticulierToTier = (values: ParticulierFormValues, existi
     phone: values.telephone || '',
     address,
     siret: '', // Pas de SIRET pour un particulier
-    status: values.status || 'active',
+    status: (values.status === 'inactive' ? 'inactive' : 'active') as 'active' | 'inactive',
     entityType: 'particulier', // CRITIQUE : Spécifier explicitement le type d'entité
   };
 
@@ -102,7 +102,7 @@ export const transformTierToEntreprise = (tier: Tier): EntrepriseFormValues => {
     formeJuridique: '',
     capitalSocial: '',
     flags: tier.type || [],
-    status: tier.status || 'active',
+    status: (tier.status === 'inactive' ? 'inactive' : 'active') as 'active' | 'inactive',
     contacts: tier.contact ? [{
       nom,
       prenom,
@@ -151,7 +151,7 @@ export const transformTierToParticulier = (tier: Tier): ParticulierFormValues =>
     email: tier.email || '',
     telephone: tier.phone || '',
     flags: tier.type || [],
-    status: tier.status || 'active',
+    status: (tier.status === 'inactive' ? 'inactive' : 'active') as 'active' | 'inactive',
     profession: '',
     dateNaissance: '',
     adresses: tier.address ? [{

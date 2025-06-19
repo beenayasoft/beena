@@ -10,8 +10,20 @@ export const entrepriseFlags = getApplicableFlags("entreprise");
 // Interface pour les contacts d'entreprise
 export interface ContactEntreprise {
   id?: string;
-  nom: string;
-  prenom: string;
+  nom?: string;
+  prenom?: string;
+  fonction?: string;
+  email?: string;
+  telephone?: string;
+  contactPrincipalDevis?: boolean;
+  contactPrincipalFacture?: boolean;
+}
+
+// Interface pour les contacts pendant l'édition (champs optionnels)
+export interface ContactEntrepriseForm {
+  id?: string;
+  nom?: string;
+  prenom?: string;
   fonction?: string;
   email?: string;
   telephone?: string;
@@ -22,10 +34,21 @@ export interface ContactEntreprise {
 // Interface pour les adresses d'entreprise
 export interface AdresseEntreprise {
   id?: string;
-  libelle: string; // "Siège social", "Facturation", "Livraison", etc.
-  rue: string;
-  ville: string;
-  codePostal: string;
+  libelle?: string; // "Siège social", "Facturation", "Livraison", etc.
+  rue?: string;
+  ville?: string;
+  codePostal?: string;
+  pays?: string;
+  facturation?: boolean;
+}
+
+// Interface pour les adresses pendant l'édition (champs optionnels)
+export interface AdresseEntrepriseForm {
+  id?: string;
+  libelle?: string;
+  rue?: string;
+  ville?: string;
+  codePostal?: string;
   pays?: string;
   facturation?: boolean;
 }
@@ -37,6 +60,7 @@ export const entrepriseFormSchema = z.object({
   
   // Champs optionnels pour entreprise
   siret: z.string().optional(),
+  tva: z.string().optional(),
   numeroTVA: z.string().optional(),
   codeNAF: z.string().optional(),
   formeJuridique: z.string().optional(),
@@ -48,23 +72,23 @@ export const entrepriseFormSchema = z.object({
   // Statut
   status: z.enum(["active", "inactive"]).default("active"),
   
-  // Contacts multiples (optionnels)
+    // Contacts multiples (optionnels)
   contacts: z.array(z.object({
-    nom: z.string().min(1, "Le nom est obligatoire"),
-    prenom: z.string().min(1, "Le prénom est obligatoire"),
+    nom: z.string().optional(),
+    prenom: z.string().optional(),
     fonction: z.string().optional(),
     email: z.string().email("Email invalide").optional().or(z.literal("")),
     telephone: z.string().optional(),
     contactPrincipalDevis: z.boolean().default(false),
     contactPrincipalFacture: z.boolean().default(false),
   })).default([]),
-  
+
   // Adresses multiples (optionnelles)
   adresses: z.array(z.object({
-    libelle: z.string().min(1, "Le libellé est obligatoire"),
-    rue: z.string().min(1, "La rue est obligatoire"),
-    ville: z.string().min(1, "La ville est obligatoire"),
-    codePostal: z.string().min(5, "Le code postal doit contenir au moins 5 caractères"),
+    libelle: z.string().optional(),
+    rue: z.string().optional(),
+    ville: z.string().optional(),
+    codePostal: z.string().optional(),
     pays: z.string().default("France"),
     facturation: z.boolean().default(false),
   })).default([]),

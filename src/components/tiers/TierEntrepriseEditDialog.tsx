@@ -56,8 +56,8 @@ export function TierEntrepriseEditDialog({
             raisonSociale: data.nom || '',
             formeJuridique: '', // Non disponible dans l'API actuelle
             siret: data.siret || '',
-            tva: data.tva || '',
-            siteWeb: '', // Non disponible dans l'API actuelle
+            numeroTVA: data.tva || '',
+
             flags: data.flags || [],
             status: data.is_deleted ? 'inactive' : 'active',
             

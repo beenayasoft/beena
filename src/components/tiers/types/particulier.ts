@@ -10,10 +10,10 @@ export const particulierFlags = getApplicableFlags("particulier");
 // Interface pour les adresses de particulier (simples)
 export interface AdresseParticulier {
   id?: string;
-  libelle: string; // "Domicile", "Résidence secondaire", etc.
-  rue: string;
-  ville: string;
-  codePostal: string;
+  libelle?: string; // "Domicile", "Résidence secondaire", etc.
+  rue?: string;
+  ville?: string;
+  codePostal?: string;
   pays?: string;
   principale?: boolean;
 }
@@ -42,10 +42,10 @@ export const particulierFormSchema = z.object({
   
   // Adresses personnelles (optionnelles)
   adresses: z.array(z.object({
-    libelle: z.string().min(1, "Le libellé est obligatoire"),
-    rue: z.string().min(1, "La rue est obligatoire"),
-    ville: z.string().min(1, "La ville est obligatoire"),
-    codePostal: z.string().min(5, "Le code postal doit contenir au moins 5 caractères"),
+    libelle: z.string().optional(),
+    rue: z.string().optional(),
+    ville: z.string().optional(),
+    codePostal: z.string().optional(),
     pays: z.string().default("France"),
     principale: z.boolean().default(false),
   })).default([]),
