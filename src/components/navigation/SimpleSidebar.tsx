@@ -16,6 +16,7 @@ import {
   Package,
   Building2,
   Hammer,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,12 @@ const mainNavItems = [
     href: "/agenda",
     icon: Calendar,
     badge: "5",
+  },
+  {
+    name: "Opportunités",
+    href: "/opportunities",
+    icon: BarChart3,
+    badge: "6",
   },
   {
     name: "Chantiers",
