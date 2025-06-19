@@ -9,9 +9,8 @@ export function useTierUtils() {
         return <Badge className="benaya-badge-primary">Client</Badge>;
       case "fournisseur":
         return <Badge className="benaya-badge-warning">Fournisseur</Badge>;
-      case "partenaire":
-        return <Badge className="benaya-badge-success">Partenaire</Badge>;
-      case "sous-traitant":
+
+      case "sous_traitant":
         return <Badge className="benaya-badge-info">Sous-traitant</Badge>;
       case "prospect":
         return <Badge className="benaya-badge-neutral">Prospect</Badge>;
@@ -38,8 +37,8 @@ export function useTierUtils() {
       tous: tiers.length,
       clients: tiers.filter((t) => t.type.includes("client")).length,
       fournisseurs: tiers.filter((t) => t.type.includes("fournisseur")).length,
-      partenaires: tiers.filter((t) => t.type.includes("partenaire")).length,
-      "sous-traitants": tiers.filter((t) => t.type.includes("sous-traitant")).length,
+
+      "sous_traitants": tiers.filter((t) => t.type.includes("sous_traitant")).length,
       prospects: tiers.filter((t) => t.type.includes("prospect")).length,
     };
   };
@@ -74,8 +73,8 @@ export function useTierUtils() {
       { id: "tous", label: "Tous", count: countByType.tous },
       { id: "clients", label: "Clients", count: countByType.clients },
       { id: "fournisseurs", label: "Fournisseurs", count: countByType.fournisseurs },
-      { id: "partenaires", label: "Partenaires", count: countByType.partenaires },
-      { id: "sous-traitants", label: "Sous-traitants", count: countByType["sous-traitants"] },
+
+      { id: "sous_traitants", label: "Sous_traitants", count: countByType["sous_traitants"] },
       { id: "prospects", label: "Prospects", count: countByType.prospects },
     ];
   };

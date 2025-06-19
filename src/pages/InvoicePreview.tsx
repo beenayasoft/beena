@@ -191,7 +191,7 @@ export default function InvoicePreview() {
                   </div>
                   <div>
                     <h1 className="text-2xl font-bold text-benaya-900">Benaya Construction</h1>
-                    <p className="text-sm text-neutral-600">Votre partenaire en construction</p>
+                    <p className="text-sm text-neutral-600">Votre spécialiste en construction</p>
                   </div>
                 </div>
                 <div className="text-sm text-neutral-600 mt-2">

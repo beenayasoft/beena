@@ -3,8 +3,7 @@ interface TiersStatsProps {
     tous: number;
     clients: number;
     fournisseurs: number;
-    partenaires: number;
-    "sous-traitants": number;
+    "sous_traitants": number;
     prospects: number;
   };
 }
@@ -33,13 +32,13 @@ export function TiersStats({ counts }: TiersStatsProps) {
         </div>
       </div>
       <div className="benaya-card text-center">
-        <div className="text-2xl font-bold text-green-600">{counts.partenaires}</div>
+        <div className="text-2xl font-bold text-indigo-600">{counts.prospects}</div>
         <div className="text-sm text-neutral-600 dark:text-neutral-400">
-          Partenaires
+          Prospects
         </div>
       </div>
       <div className="benaya-card text-center">
-        <div className="text-2xl font-bold text-purple-600">{counts["sous-traitants"]}</div>
+        <div className="text-2xl font-bold text-purple-600">{counts["sous_traitants"]}</div>
         <div className="text-sm text-neutral-600 dark:text-neutral-400">
           Sous-traitants
         </div>
