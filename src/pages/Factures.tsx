@@ -33,7 +33,7 @@ import {
   createCreditNote 
 } from "@/lib/mock/invoices";
 import { Invoice, InvoiceStatus } from "@/lib/types/invoice";
-import { initialTiers } from "@/components/tiers";
+import { initialTiers } from "@/lib/mock/tiers";
 
 export default function Factures() {
   const navigate = useNavigate();

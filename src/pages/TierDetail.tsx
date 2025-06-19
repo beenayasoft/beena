@@ -10,7 +10,7 @@ import { useTierUtils } from "@/components/tiers";
 import { tiersApi } from "@/lib/api/tiers";
 import { TierEntrepriseEditDialog } from "@/components/tiers/TierEntrepriseEditDialog";
 import { TierParticulierEditDialog } from "@/components/tiers/TierParticulierEditDialog";
-import type { Tier } from "@/components/tiers";
+import type { Tier } from "@/components/tiers/types";
 
 // Types pour les données détaillées du backend
 interface TierDetailData {

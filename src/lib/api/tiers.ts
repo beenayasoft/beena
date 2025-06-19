@@ -158,7 +158,7 @@ const adaptTierFromApi = (tierApi: any): Tier => {
     phone: contactPrincipal?.telephone || '',
     address: addressFormatted,
     siret: tierApi.siret || '',
-    status: tierApi.is_deleted === true ? 'inactive' : 'active'
+    status: tierApi.is_deleted === true ? 'inactive' : 'active' as 'inactive' | 'active'
   };
   
   console.log("Tier adapté:", tier);

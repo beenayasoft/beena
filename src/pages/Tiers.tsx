@@ -8,14 +8,13 @@ import {
   TiersSearch,
   TiersTabs,
   useTierUtils,
-  Tier,
-  TierFormValues,
-  initialTiers,
-  DeleteConfirmDialog
+  DeleteConfirmDialog,
+  TierCreateFlow,
+  TierEntrepriseEditDialog,
+  TierParticulierEditDialog
 } from "@/components/tiers";
-import { TierDialog } from "@/components/tiers/TierDialog";
+import { Tier } from "@/components/tiers/types";
 import { tiersApi } from "@/lib/api/tiers";
-import { TierCreateFlow } from "@/components/tiers/TierCreateFlow";
 
 export default function Tiers() {
   const navigate = useNavigate();
@@ -24,12 +23,13 @@ export default function Tiers() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("tous");
   const [searchQuery, setSearchQuery] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTier, setEditingTier] = useState<Tier | undefined>(undefined);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tierToDelete, setTierToDelete] = useState<Tier | null>(null);
-  const [forceUpdate, setForceUpdate] = useState(0); // État pour forcer le rafraîchissement
-  const [createOpen, setCreateOpen] = useState(false); // Pour le workflow de création
+  const [forceUpdate, setForceUpdate] = useState(0);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editEntrepriseOpen, setEditEntrepriseOpen] = useState(false);
+  const [editParticulierOpen, setEditParticulierOpen] = useState(false);
 
   const { countTiersByType, filterTiers, generateTabs } = useTierUtils();
 
@@ -72,10 +72,12 @@ export default function Tiers() {
       }
       
       // Adapter les données pour la nouvelle structure avec relation -> type
+      // Et s'assurer que le statut est conforme au type attendu
       const adaptedTiers = tiersData.map((tier: any) => ({
         ...tier,
-        type: tier.relation ? [tier.relation] : tier.type || [] // Convertir relation string vers type array
-      }));
+        type: tier.relation ? [tier.relation] : tier.type || [], // Convertir relation string vers type array
+        status: tier.status === 'inactive' ? 'inactive' : 'active' // S'assurer que le statut est conforme
+      })) as Tier[];
       
       setTiers(adaptedTiers);
       setError(null);
@@ -98,22 +100,19 @@ export default function Tiers() {
     loadTiers();
   }, []);
 
-  // Gérer la soumission du formulaire d'ajout/édition
-
-
   // Gérer la fermeture de la modale d'édition
   const handleDialogClose = (open: boolean) => {
     if (!open) {
-      // Fermer la modale
-      setDialogOpen(false);
+      // Fermer les modales d'édition
+      setEditEntrepriseOpen(false);
+      setEditParticulierOpen(false);
+      
       // Attendre que l'animation de fermeture soit terminée avant de réinitialiser
       setTimeout(() => {
         setEditingTier(undefined);
         // Forcer le rafraîchissement
         setForceUpdate(prev => prev + 1);
       }, 100);
-    } else {
-      setDialogOpen(true);
     }
   };
 
@@ -160,9 +159,15 @@ export default function Tiers() {
   const handleEdit = (tier: Tier) => {
     // Définir d'abord le tier à éditer avec une copie profonde
     setEditingTier({...tier});
-    // Attendre que le state soit mis à jour avant d'ouvrir la modale
+    
+    // Déterminer le type de tiers et ouvrir la modale appropriée
     setTimeout(() => {
-      setDialogOpen(true);
+      // Si le tier a un SIRET, c'est une entreprise, sinon un particulier
+      if (tier.siret && tier.siret.trim() !== '') {
+        setEditEntrepriseOpen(true);
+      } else {
+        setEditParticulierOpen(true);
+      }
     }, 50);
   };
 
@@ -241,18 +246,33 @@ export default function Tiers() {
         />
       </div>
 
-      {/* Dialog for adding/editing tiers */}
-      <TierDialog
-        key={`dialog-${editingTier?.id || 'new'}-${forceUpdate}`}
-        open={dialogOpen}
-        onOpenChange={handleDialogClose}
-        onSuccess={() => {
-          // Recharger la liste des tiers après modification
-          loadTiers();
-        }}
-        tier={editingTier}
-        isEditing={!!editingTier}
-      />
+      {/* Dialog pour éditer une entreprise */}
+      {editingTier && editEntrepriseOpen && (
+        <TierEntrepriseEditDialog
+          key={`entreprise-edit-${editingTier.id}-${forceUpdate}`}
+          open={editEntrepriseOpen}
+          onOpenChange={(open) => {
+            handleDialogClose(open);
+            if (!open) loadTiers();
+          }}
+          onSuccess={loadTiers}
+          tier={editingTier}
+        />
+      )}
+
+      {/* Dialog pour éditer un particulier */}
+      {editingTier && editParticulierOpen && (
+        <TierParticulierEditDialog
+          key={`particulier-edit-${editingTier.id}-${forceUpdate}`}
+          open={editParticulierOpen}
+          onOpenChange={(open) => {
+            handleDialogClose(open);
+            if (!open) loadTiers();
+          }}
+          onSuccess={loadTiers}
+          tier={editingTier}
+        />
+      )}
 
       {/* Confirmation dialog for deleting tiers */}
       <DeleteConfirmDialog

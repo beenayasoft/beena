@@ -1,28 +1,14 @@
-// Types de base
-export type { 
-  Tier, 
-  TierFormValues, 
-  EntityType
-} from './types';
-
-// Données initiales
-export { initialTiers } from './types';
-
 // Types spécialisés
 export * from './types/errors';
+export * from './types/common';
+export * from './types/entreprise';
+export * from './types/particulier';
 
-// Utilitaires sans conflits
-export { 
-  transformTierToFormValues,
-  transformFormValuesToTier
-} from './utils';
-
-// Hooks
-export * from './hooks/useTierForm';
+// Utilitaires
+export * from './utils/adaptateurs';
 export * from './useTierUtils';
 
 // Composants formulaires
-export * from './TierForm';
 export { EntrepriseForm } from './EntrepriseForm';
 export { ParticulierForm } from './ParticulierForm';
 
@@ -42,5 +28,6 @@ export * from './TierEntrepriseEditDialog';
 export * from './TierParticulierEditDialog';
 export * from './ModalTypeSelector';
 
-// Hooks additionnels
-export * from './hooks'; 
+// Hooks spécialisés
+export * from './hooks/useEntrepriseForm';
+export * from './hooks/useParticulierForm'; 

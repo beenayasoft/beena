@@ -32,7 +32,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Tier, useTierUtils } from "./index";
+import { useTierUtils } from "./index";
+import { Tier } from "./types";
 import { MouseEvent, useState, useMemo } from "react";
 
 interface TiersListProps {

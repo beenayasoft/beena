@@ -48,7 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Invoice, InvoiceItem, VATRate, InvoiceStatus } from "@/lib/types/invoice";
 import { getInvoiceById, validateInvoice } from "@/lib/mock/invoices";
-import { initialTiers } from "@/components/tiers";
+import { initialTiers } from "@/lib/mock/tiers";
 import { formatCurrency } from "@/lib/utils";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
