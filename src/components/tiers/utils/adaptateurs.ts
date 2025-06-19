@@ -27,7 +27,7 @@ export const transformEntrepriseToTier = (values: EntrepriseFormValues, existing
   const tier: Tier & { entityType: string } = {
     id: existingId || '',
     name,
-    type: values.flags || [],
+    type: values.flags && values.flags.length > 0 ? [values.flags[0]] : ['client'], // Prendre la première relation ou 'client' par défaut
     contact,
     email: contactPrincipal?.email || '',
     phone: contactPrincipal?.telephone || '',
@@ -61,7 +61,7 @@ export const transformParticulierToTier = (values: ParticulierFormValues, existi
   const tier: Tier & { entityType: string } = {
     id: existingId || '',
     name,
-    type: values.flags || [],
+    type: values.flags && values.flags.length > 0 ? [values.flags[0]] : ['client'], // Prendre la première relation ou 'client' par défaut
     contact,
     email: values.email || '',
     phone: values.telephone || '',

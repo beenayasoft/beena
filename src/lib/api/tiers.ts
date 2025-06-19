@@ -31,7 +31,7 @@ export interface TierData {
   id: string;
   nom: string;
   type: string;
-  flags: string[];
+  relation: string;
   siret: string;
   tva: string;
   assigned_user?: { id: string; email: string; first_name: string; last_name: string };
@@ -111,6 +111,7 @@ const adaptTierFromApi = (tierApi: any): Tier => {
   console.log("Adaptation tier:", {
     id: tierApi.id,
     nom: tierApi.nom,
+    relation: tierApi.relation,
     contacts: contacts,
     contactPrincipal: contactPrincipal,
     adresses: adresses,
@@ -151,7 +152,7 @@ const adaptTierFromApi = (tierApi: any): Tier => {
   const tier = {
     id: tierApi.id || '',
     name: tierApi.nom || '',
-    type: Array.isArray(tierApi.flags) ? tierApi.flags : [],
+    type: tierApi.relation ? [tierApi.relation] : [],
     contact: contactName,
     email: contactPrincipal?.email || '',
     phone: contactPrincipal?.telephone || '',
@@ -176,7 +177,7 @@ const adaptTierToApi = (tier: Tier & { entityType?: string, fonction?: string, p
   const tierData: any = {
     nom: tier.name,
     type: entityType,
-    flags: tier.type,
+    relation: Array.isArray(tier.type) && tier.type.length > 0 ? tier.type[0] : 'client',
     siret: tier.siret || '',
     tva: '',
     is_deleted: tier.status === 'inactive',
@@ -216,28 +217,18 @@ const adaptTierToApi = (tier: Tier & { entityType?: string, fonction?: string, p
     }
   }
 
-  // Ajouter les contacts seulement si on a un contact valide
+  // Ajouter les contacts seulement si on a des informations de contact valides
   if (tier.contact && tier.contact.trim()) {
+    // Format du contact: "Prénom Nom"
     const contactParts = tier.contact.trim().split(' ');
-    let prenom = '';
-    let nom = '';
-    
-    if (contactParts.length > 1) {
-      prenom = contactParts[0];
-      nom = contactParts.slice(1).join(' ');
-    } else {
-      if (tier.entityType === 'particulier') {
-        nom = tier.contact;
-      } else {
-        nom = tier.contact;
-      }
-    }
+    const prenom = contactParts[0] || '';
+    const nom = contactParts.slice(1).join(' ') || '';
 
-    // N'ajouter le contact que si on a au moins un nom
-    if (nom.trim()) {
+    // Si on a au moins un nom, créer un contact
+    if (nom || prenom) {
       tierData.contacts = [{
-        nom,
-        prenom,
+        nom: nom || prenom,
+        prenom: nom ? prenom : '',
         fonction: tier.fonction || '',
         email: tier.email || '',
         telephone: tier.phone || '',
@@ -247,17 +238,7 @@ const adaptTierToApi = (tier: Tier & { entityType?: string, fonction?: string, p
     }
   }
   
-  // Log du résultat pour débogage avec détails
   console.log("Données adaptées pour l'API:", tierData);
-  console.log("🔍 DÉTAIL STRUCTURE ENVOYÉE:");
-  console.log("  - nom:", tierData.nom);
-  console.log("  - type:", tierData.type);
-  console.log("  - flags:", tierData.flags);
-  console.log("  - contacts:", tierData.contacts);
-  console.log("  - adresses:", tierData.adresses);
-  console.log("  - siret:", tierData.siret);
-  console.log("  - tva:", tierData.tva);
-  
   return tierData;
 };
 
@@ -266,8 +247,7 @@ export const tiersApi = {
   // Récupérer la liste des tiers
   getTiers: async (filters?: Record<string, string>): Promise<Tier[]> => {
     try {
-      // L'endpoint "/vue_360/" donne toutes les informations d'un tier
-      // Mais n'existe pas pour la liste, on doit donc d'abord récupérer les IDs
+      console.log("Appel API: Récupération de la liste des tiers avec frontend_format");
       
       const params = new URLSearchParams();
       if (filters) {
@@ -276,90 +256,40 @@ export const tiersApi = {
         });
       }
       
-      // Étape 1: Récupérer la liste des IDs des tiers
-      console.log("Appel API: Récupération de la liste des tiers");
-      const listResponse = await apiClient.get(`/tiers/tiers/?${params.toString()}`);
+      // Utiliser l'endpoint frontend_format qui retourne directement les données formatées
+      const response = await apiClient.get(`/tiers/tiers/frontend_format/?${params.toString()}`);
+      console.log("Réponse API frontend_format:", response.data);
       
-      console.log("Réponse API liste tiers:", listResponse.data);
-      
-      if (!listResponse.data || (!Array.isArray(listResponse.data) && !listResponse.data.results)) {
-        console.warn("Données vides ou format inattendu reçu de l'API tiers");
+      if (!response.data) {
+        console.warn("Données vides reçues de l'API frontend_format");
         return [];
       }
       
-      // Extraire les IDs des tiers
-      const tiersDataList = Array.isArray(listResponse.data) 
-        ? listResponse.data 
-        : (listResponse.data.results || []);
+      // Les données peuvent être dans un format paginé ou direct
+      const tiersData = response.data.results || response.data;
       
-      console.log(`Récupération des données détaillées pour ${tiersDataList.length} tiers...`);
+      if (!Array.isArray(tiersData)) {
+        console.warn("Format de données inattendu:", tiersData);
+        return [];
+      }
       
-      // Étape 2: Pour chaque tier, récupérer sa vue détaillée avec l'endpoint vue_360
-      // Note: ceci peut être lent pour beaucoup de tiers, optimiser si nécessaire
-      const detailedTiers = await Promise.all(
-        tiersDataList.map(async (tierBasic: any) => {
-          try {
-            console.log(`Appel API: vue détaillée du tier ${tierBasic.id}`);
-            const detailResponse = await apiClient.get(`/tiers/tiers/${tierBasic.id}/vue_360/`);
-            console.log(`Réponse détaillée pour tier ${tierBasic.id}:`, detailResponse.data);
-            return detailResponse.data;
-          } catch (error) {
-            console.error(`Erreur lors de la récupération des détails pour le tier ${tierBasic.id}:`, error);
-            return tierBasic;
-          }
-        })
-      );
-      
-      console.log(`Données détaillées récupérées pour ${detailedTiers.length} tiers`);
-      
-      // Étape 3: Adapter les données au format du frontend - avec analyse détaillée
-      return detailedTiers.map(tierData => {
+      // Adapter les données pour s'assurer de la compatibilité avec le nouveau modèle
+      return tiersData.map(tierData => {
         console.log(`Traitement du tier ${tierData.id}:`, tierData);
-        
-        // Afficher les contacts disponibles
-        if (tierData.contacts) {
-          console.log(`Contacts pour tier ${tierData.id}:`, tierData.contacts);
-        } else {
-          console.log(`Aucun contact pour tier ${tierData.id}`);
-        }
-        
-        // Afficher les adresses disponibles
-        if (tierData.adresses) {
-          console.log(`Adresses pour tier ${tierData.id}:`, tierData.adresses);
-        } else {
-          console.log(`Aucune adresse pour tier ${tierData.id}`);
-        }
-        
-        // Premier contact - priorité au contact principal devis
-        const contactPrincipal = 
-          tierData.contacts?.find((c: any) => c.contact_principal_devis) || 
-          tierData.contacts?.[0];
-          
-        // Adresse principale - priorité à l'adresse de facturation
-        const adressePrincipale = 
-          tierData.adresses?.find((a: any) => a.facturation) || 
-          tierData.adresses?.[0];
-        
-        // Logger les informations du contact et de l'adresse sélectionnés
-        console.log(`Contact principal pour tier ${tierData.id}:`, contactPrincipal);
-        console.log(`Adresse principale pour tier ${tierData.id}:`, adressePrincipale);
         
         const result = {
           id: tierData.id || '',
-          name: tierData.nom || '',
-          type: Array.isArray(tierData.flags) ? tierData.flags : [],
-          contact: contactPrincipal ? `${contactPrincipal.prenom} ${contactPrincipal.nom}`.trim() : '',
-          email: contactPrincipal?.email || '',
-          phone: contactPrincipal?.telephone || '',
-          address: adressePrincipale ? 
-            `${adressePrincipale.rue || ''}, ${adressePrincipale.code_postal || ''} ${adressePrincipale.ville || ''}`.trim() : '',
+          name: tierData.name || tierData.nom || '',
+          type: tierData.relation ? [tierData.relation] : tierData.type || [], // Gérer la migration relation -> type
+          contact: tierData.contact || '',
+          email: tierData.email || '',
+          phone: tierData.phone || '',
+          address: tierData.address || '',
           siret: tierData.siret || '',
-          status: tierData.is_deleted ? 'inactive' : 'active'
+          status: tierData.status || 'active'
         };
         
-        // Logger le résultat final de l'adaptation
         console.log(`Tier adapté ${tierData.id}:`, result);
-        
         return result;
       });
     } catch (error) {

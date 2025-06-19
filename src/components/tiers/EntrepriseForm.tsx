@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -312,52 +312,43 @@ export function EntrepriseForm({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Relations commerciales *
-                  <Badge variant="destructive" className="text-xs">Au moins une</Badge>
+                  Relation commerciale *
+                  <Badge variant="outline" className="text-xs">Une seule sélection</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <FormField
                   control={form.control}
                   name="flags"
-                  render={() => (
-                    <FormItem>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {entrepriseFlags.map((flag) => (
-                          <FormField
-                            key={flag.id}
-                            control={form.control}
-                            name="flags"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={flag.id}
-                                  className="flex flex-row items-start space-x-3 space-y-0"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      disabled={formLoading}
-                                      checked={field.value?.includes(flag.id)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...field.value, flag.id])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== flag.id
-                                              )
-                                            )
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="text-sm font-normal">
-                                    {flag.label}
-                                  </FormLabel>
-                                </FormItem>
-                              )
-                            }}
-                          />
-                        ))}
-                      </div>
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={(value) => field.onChange([value])} // Convertir en array pour compatibilité
+                          value={field.value?.[0] || ""} // Prendre le premier élément ou vide
+                          className="grid grid-cols-1 md:grid-cols-2 gap-3"
+                          disabled={formLoading}
+                        >
+                          {entrepriseFlags.map((flag) => (
+                            <div key={flag.id} className="flex items-center space-x-2">
+                              <RadioGroupItem 
+                                value={flag.id} 
+                                id={flag.id}
+                                disabled={formLoading}
+                              />
+                              <FormLabel
+                                htmlFor={flag.id}
+                                className="text-sm font-normal cursor-pointer"
+                              >
+                                {flag.label}
+                              </FormLabel>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormDescription>
+                        Sélectionnez la relation commerciale principale avec cette entreprise
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

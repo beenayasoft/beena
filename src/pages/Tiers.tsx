@@ -71,8 +71,13 @@ export default function Tiers() {
         return;
       }
       
-      // Les données sont déjà au bon format pour le frontend
-      setTiers(tiersData);
+      // Adapter les données pour la nouvelle structure avec relation -> type
+      const adaptedTiers = tiersData.map((tier: any) => ({
+        ...tier,
+        type: tier.relation ? [tier.relation] : tier.type || [] // Convertir relation string vers type array
+      }));
+      
+      setTiers(adaptedTiers);
       setError(null);
     } catch (err) {
       setError("Erreur lors du chargement des tiers");

@@ -46,7 +46,7 @@ export const tierFlagsConfig: TierFlagConfig[] = [
   },
 
   {
-    id: "sous-traitant",
+    id: "sous_traitant",
     label: "Sous-traitant",
     description: "Tier qui effectue des travaux pour notre compte",
     color: "bg-indigo-100 text-indigo-800",

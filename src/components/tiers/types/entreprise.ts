@@ -42,8 +42,8 @@ export const entrepriseFormSchema = z.object({
   formeJuridique: z.string().optional(),
   capitalSocial: z.string().optional(),
   
-  // Flags de relation commerciale (au moins un requis)
-  flags: z.array(z.string()).min(1, "Sélectionnez au moins un type de relation"),
+  // Relation commerciale unique (obligatoire)
+  flags: z.array(z.string()).min(1, "Sélectionnez une relation commerciale").max(1, "Une seule relation peut être sélectionnée"),
   
   // Statut
   status: z.enum(["active", "inactive"]).default("active"),
@@ -81,7 +81,7 @@ export const defaultEntrepriseValues: EntrepriseFormValues = {
   codeNAF: "",
   formeJuridique: "",
   capitalSocial: "",
-  flags: [],
+  flags: [], // Démarrer avec aucune sélection - l'utilisateur doit choisir
   status: "active",
   contacts: [],
   adresses: [],
@@ -115,7 +115,9 @@ export const validateEntreprise = (values: EntrepriseFormValues): { isValid: boo
   }
   
   if (!values.flags || values.flags.length === 0) {
-    errors.push("Sélectionnez au moins un type de relation commerciale");
+    errors.push("Sélectionnez une relation commerciale");
+  } else if (values.flags.length > 1) {
+    errors.push("Une seule relation commerciale peut être sélectionnée");
   }
   
   // Validation SIRET si fourni
