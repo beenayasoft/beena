@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Opportunity, OpportunityFilters } from '../types/opportunity';
 
 // Configuration de l'URL de base de l'API
-const API_URL = ' https://179c-105-72-56-65.ngrok-free.app/api';
+const API_URL = 'http://127.0.0.1:8000/api';
 
 // Instance axios avec configuration de base
 const apiClient = axios.create({
