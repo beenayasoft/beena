@@ -15,6 +15,9 @@ import { Opportunity } from "@/lib/types/opportunity";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { toast } from "@/hooks/use-toast";
+import { getOpportunities } from "@/lib/mock/opportunities";
+import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
+import { initialTiers } from "@/lib/mock/tiers";
 
 // Types pour les données détaillées du backend
 interface TierDetailData {
@@ -164,6 +167,10 @@ export default function TierDetail() {
 
         console.log("Données tier après restructuration:", data);
         setTierData(data);
+        
+        // Charger les opportunités liées à ce tiers (si besoin)
+        const tierOpportunities = getOpportunities({ tierId: id });
+        setOpportunities(tierOpportunities);
       } catch (err) {
         console.error("Erreur lors du chargement du tier:", err);
         setError(err instanceof Error ? err.message : "Erreur lors du chargement");
@@ -609,6 +616,92 @@ export default function TierDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Actions et résumé */}
+            {tierData && (
+              <Card className="benaya-card mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">Actions rapides</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    className="w-full gap-2 benaya-button-primary" 
+                    onClick={handleCreateOpportunity}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Créer une opportunité
+                  </Button>
+                  {tierData.contacts && tierData.contacts[0] && (
+                    <>
+                      {tierData.contacts[0].telephone && (
+                        <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`tel:${tierData.contacts[0].telephone.replace(/\s/g, "")}`)}>
+                          <Phone className="h-4 w-4" />
+                          Appeler
+                        </Button>
+                      )}
+                      {tierData.contacts[0].email && (
+                        <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`mailto:${tierData.contacts[0].email}`)}>
+                          <Mail className="h-4 w-4" />
+                          Envoyer un email
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {tierData.adresses && tierData.adresses[0] && (
+                    <Button className="w-full gap-2" variant="outline" onClick={() => {
+                      const adresse = tierData.adresses![0];
+                      const adresseComplete = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}, ${adresse.pays || 'France'}`;
+                      window.open(`https://maps.google.com/?q=${encodeURIComponent(adresseComplete)}`);
+                    }}>
+                      <MapPin className="h-4 w-4" />
+                      Voir sur la carte
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Opportunités */}
+            {tierData && (
+              <Card className="benaya-card mt-6">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Opportunités</CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleCreateOpportunity}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nouvelle opportunité
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {opportunities.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {opportunities.map(opportunity => (
+                        <OpportunityCard
+                          key={opportunity.id}
+                          opportunity={opportunity}
+                          onView={() => navigate(`/opportunities/${opportunity.id}`)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-neutral-500">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4" />
+                      <p className="mb-4">Aucune opportunité pour ce tiers</p>
+                      <Button 
+                        onClick={handleCreateOpportunity}
+                        className="gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Créer une opportunité
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
@@ -654,6 +747,7 @@ export default function TierDetail() {
           />
         </DialogContent>
       </Dialog>
+
     </>
   );
 }

@@ -1,7 +1,5 @@
-import axios from 'axios';
+import { apiClient } from './client';
 
-// Configuration de l'URL de base de l'API
-const API_URL = 'http://localhost:8000/api';
 
 // Types pour les données d'authentification
 export interface LoginCredentials {
@@ -32,28 +30,6 @@ export interface AuthResponse {
   };
 }
 
-// Instance axios avec configuration de base
-const apiClient = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Intercepteur pour ajouter le token d'authentification aux requêtes
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
 // Fonctions d'API pour l'authentification
 export const authApi = {
   // Connexion utilisateur
@@ -81,4 +57,4 @@ export const authApi = {
   },
 };
 
-export default authApi; 
+export default authApi;
