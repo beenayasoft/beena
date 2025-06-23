@@ -15,6 +15,9 @@ import { Opportunity } from "@/lib/types/opportunity";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { toast } from "@/hooks/use-toast";
+import { getOpportunities } from "@/lib/mock/opportunities";
+import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
+import { initialTiers } from "@/lib/mock/tiers";
 
 // Types pour les données détaillées du backend
 interface TierDetailData {
@@ -47,15 +50,6 @@ interface TierDetailData {
     facturation: boolean;
   }>;
 }
-
-
-import { Opportunity } from "@/lib/types/opportunity";
-import { getOpportunities } from "@/lib/mock/opportunities";
-import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
-import { toast } from "@/hooks/use-toast";
-import { initialTiers } from "@/lib/mock/tiers";
 
 export default function TierDetail() {
   const { id } = useParams<{ id: string }>();
@@ -125,18 +119,6 @@ export default function TierDetail() {
       setError("ID du tier manquant");
       setLoading(false);
       return;
-
-    }
-    
-    // Dans une application réelle, vous feriez un appel API ici
-    // Pour l'instant, on utilise les données mockées
-    const foundTier = initialTiers.find(t => t.id === id);
-    if (foundTier) {
-      setTier(foundTier);
-      
-      // Charger les opportunités liées à ce tiers
-      const tierOpportunities = getOpportunities({ tierId: foundTier.id });
-      setOpportunities(tierOpportunities);
     }
 
     const fetchTierData = async () => {
@@ -185,6 +167,10 @@ export default function TierDetail() {
 
         console.log("Données tier après restructuration:", data);
         setTierData(data);
+        
+        // Charger les opportunités liées à ce tiers (si besoin)
+        const tierOpportunities = getOpportunities({ tierId: id });
+        setOpportunities(tierOpportunities);
       } catch (err) {
         console.error("Erreur lors du chargement du tier:", err);
         setError(err instanceof Error ? err.message : "Erreur lors du chargement");
@@ -632,7 +618,7 @@ export default function TierDetail() {
             </Card>
 
             {/* Actions et résumé */}
-            {tier && (
+            {tierData && (
               <Card className="benaya-card mt-6">
                 <CardHeader>
                   <CardTitle className="text-lg">Actions rapides</CardTitle>
@@ -645,24 +631,38 @@ export default function TierDetail() {
                     <BarChart3 className="h-4 w-4" />
                     Créer une opportunité
                   </Button>
-                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`tel:${tier.phone.replace(/\s/g, "")}`)}>
-                    <Phone className="h-4 w-4" />
-                    Appeler
-                  </Button>
-                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`mailto:${tier.email}`)}>
-                    <Mail className="h-4 w-4" />
-                    Envoyer un email
-                  </Button>
-                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(tier.address)}`)}>
-                    <MapPin className="h-4 w-4" />
-                    Voir sur la carte
-                  </Button>
+                  {tierData.contacts && tierData.contacts[0] && (
+                    <>
+                      {tierData.contacts[0].telephone && (
+                        <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`tel:${tierData.contacts[0].telephone.replace(/\s/g, "")}`)}>
+                          <Phone className="h-4 w-4" />
+                          Appeler
+                        </Button>
+                      )}
+                      {tierData.contacts[0].email && (
+                        <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`mailto:${tierData.contacts[0].email}`)}>
+                          <Mail className="h-4 w-4" />
+                          Envoyer un email
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {tierData.adresses && tierData.adresses[0] && (
+                    <Button className="w-full gap-2" variant="outline" onClick={() => {
+                      const adresse = tierData.adresses![0];
+                      const adresseComplete = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}, ${adresse.pays || 'France'}`;
+                      window.open(`https://maps.google.com/?q=${encodeURIComponent(adresseComplete)}`);
+                    }}>
+                      <MapPin className="h-4 w-4" />
+                      Voir sur la carte
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             {/* Opportunités */}
-            {tier && (
+            {tierData && (
               <Card className="benaya-card mt-6">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Opportunités</CardTitle>

@@ -1,6 +1,5 @@
+import { apiClient } from './client';
 
-// Configuration de l'URL de base de l'API
-const API_URL = 'http://localhost:8000/api';
 
 // Types pour les données d'authentification
 export interface LoginCredentials {
@@ -58,4 +57,4 @@ export const authApi = {
   },
 };
 
-export default authApi; 
+export default authApi;
