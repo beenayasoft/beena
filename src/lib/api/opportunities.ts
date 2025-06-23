@@ -5,7 +5,6 @@ import { Opportunity, OpportunityFilters } from '../types/opportunity';
 
 const API_URL = 'http://localhost:8000/api';
 
-
 // Instance axios avec configuration de base
 const apiClient = axios.create({
   baseURL: API_URL,

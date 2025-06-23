@@ -51,9 +51,27 @@ export function TierParticulierEditDialog({
           const data = await response.json();
           console.log("TierParticulierEditDialog: Données complètes reçues:", data);
           
+          // Extraire les contacts et adresses de la structure onglets si nécessaire
+          let contacts = data.contacts || [];
+          let adresses = data.adresses || [];
+          
+          // Si les données sont dans la structure 'onglets', les extraire
+          if (data.onglets) {
+            console.log("Structure avec onglets détectée, extraction des données...");
+            if (data.onglets.contacts) {
+              contacts = data.onglets.contacts;
+            }
+            if (data.onglets.infos && data.onglets.infos.adresses) {
+              adresses = data.onglets.infos.adresses;
+            }
+          }
+          
+          console.log("Contacts extraits:", contacts);
+          console.log("Adresses extraites:", adresses);
+          
           // Pour un particulier, le nom principal est dans le champ "nom"
           // Mais nous devons aussi récupérer le contact principal pour prenom/nom
-          const contactPrincipal = data.contacts?.find((c: any) => c.contact_principal_devis) || data.contacts?.[0];
+          const contactPrincipal = contacts.find((c: any) => c.contact_principal_devis) || contacts[0];
           
           // Transformer les données en format ParticulierFormValues
           const formValues: ParticulierFormValues = {
@@ -65,7 +83,7 @@ export function TierParticulierEditDialog({
             status: data.is_deleted ? 'inactive' : 'active',
             
             // Transformer les adresses
-            adresses: (data.adresses || []).map((adresse: any) => ({
+            adresses: adresses.map((adresse: any) => ({
               id: adresse.id,
               libelle: adresse.libelle || '',
               rue: adresse.rue || '',

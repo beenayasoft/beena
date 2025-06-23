@@ -11,6 +11,10 @@ import { tiersApi } from "@/lib/api/tiers";
 import { TierEntrepriseEditDialog } from "@/components/tiers/TierEntrepriseEditDialog";
 import { TierParticulierEditDialog } from "@/components/tiers/TierParticulierEditDialog";
 import type { Tier } from "@/components/tiers/types";
+import { Opportunity } from "@/lib/types/opportunity";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
+import { toast } from "@/hooks/use-toast";
 
 // Types pour les données détaillées du backend
 interface TierDetailData {
@@ -21,8 +25,8 @@ interface TierDetailData {
   tva?: string;
   flags: string[];
   is_deleted: boolean;
-  created_at: string;
-  updated_at: string;
+  date_creation: string;
+  date_modification: string;
   contacts?: Array<{
     id: string;
     prenom: string;
@@ -43,6 +47,7 @@ interface TierDetailData {
     facturation: boolean;
   }>;
 }
+
 
 import { Opportunity } from "@/lib/types/opportunity";
 import { getOpportunities } from "@/lib/mock/opportunities";
@@ -91,8 +96,6 @@ export default function TierDetail() {
   const [tierData, setTierData] = useState<TierDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [tier, setTier] = useState<Tier | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   
@@ -108,7 +111,7 @@ export default function TierDetail() {
   const tierForEdit: Tier | null = tierData ? {
     id: tierData.id,
     name: tierData.nom,
-    type: tierData.type,
+    type: tierData.flags,
     siret: tierData.siret || '',
     contact: '', // Sera recalculé par la modale
     email: '', // Sera recalculé par la modale
@@ -122,6 +125,7 @@ export default function TierDetail() {
       setError("ID du tier manquant");
       setLoading(false);
       return;
+
     }
     
     // Dans une application réelle, vous feriez un appel API ici
@@ -140,6 +144,7 @@ export default function TierDetail() {
         setLoading(true);
         setError(null);
         
+        console.log("Tentative de récupération du tier avec ID:", id);
         const response = await fetch(`http://localhost:8000/api/tiers/tiers/${id}/vue_360/`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -153,6 +158,32 @@ export default function TierDetail() {
         
         const data = await response.json();
         console.log("Données tier reçues:", data);
+        console.log("Structure de l'API:", {
+          onglets: data.onglets ? "Présent" : "Absent",
+          contacts: Array.isArray(data.contacts) 
+            ? `Présent directement (${data.contacts.length} contacts)` 
+            : (data.onglets?.contacts ? `Présent dans onglets (${data.onglets.contacts.length} contacts)` : "Absent"),
+          adresses: Array.isArray(data.adresses) 
+            ? `Présent directement (${data.adresses.length} adresses)` 
+            : (data.onglets?.infos?.adresses ? `Présent dans onglets.infos (${data.onglets.infos.adresses.length} adresses)` : "Absent"),
+        });
+
+        // Si les données sont dans la structure 'onglets', les remettre à plat
+        if (data.onglets) {
+          console.log("Restructuration des données des onglets");
+          if (data.onglets.contacts) {
+            data.contacts = data.onglets.contacts;
+          }
+          if (data.onglets.infos && data.onglets.infos.adresses) {
+            data.adresses = data.onglets.infos.adresses;
+          }
+          if (data.onglets.activites) {
+            data.activites = data.onglets.activites;
+          }
+          delete data.onglets;
+        }
+
+        console.log("Données tier après restructuration:", data);
         setTierData(data);
       } catch (err) {
         console.error("Erreur lors du chargement du tier:", err);
@@ -202,7 +233,6 @@ export default function TierDetail() {
   // Gérer la soumission du formulaire d'opportunité
   const handleFormSubmit = (formData: Partial<Opportunity>) => {
     // Dans une application réelle, vous feriez un appel API ici
-    // Pour l'instant, simulons la création
     console.log("Nouvelle opportunité:", formData);
     
     // Afficher une notification
@@ -218,6 +248,7 @@ export default function TierDetail() {
     navigate("/opportunities");
   };
 
+  // Si en cours de chargement, afficher un spinner
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -386,7 +417,7 @@ export default function TierDetail() {
                       <div className="md:col-span-2">
                         <div className="text-sm text-neutral-500 dark:text-neutral-400">Date de création</div>
                         <div className="font-medium">
-                          {new Date(tierData.created_at).toLocaleDateString('fr-FR', {
+                          {new Date(tierData.date_creation).toLocaleDateString('fr-FR', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
@@ -536,13 +567,13 @@ export default function TierDetail() {
                         <div>
                           <span className="text-neutral-500">Créé le:</span>
                           <div className="font-medium">
-                            {new Date(tierData.created_at).toLocaleDateString('fr-FR')}
+                            {new Date(tierData.date_creation).toLocaleDateString('fr-FR')}
                           </div>
                         </div>
                         <div>
                           <span className="text-neutral-500">Modifié le:</span>
                           <div className="font-medium">
-                            {new Date(tierData.updated_at).toLocaleDateString('fr-FR')}
+                            {new Date(tierData.date_modification).toLocaleDateString('fr-FR')}
                           </div>
                         </div>
                       </div>
@@ -585,13 +616,13 @@ export default function TierDetail() {
                       <div>
                         <span className="text-neutral-500 text-xs">Créé le:</span>
                         <div className="font-medium text-sm">
-                          {new Date(tierData.created_at).toLocaleDateString('fr-FR')}
+                          {new Date(tierData.date_creation).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
                       <div>
                         <span className="text-neutral-500 text-xs">Modifié le:</span>
                         <div className="font-medium text-sm">
-                          {new Date(tierData.updated_at).toLocaleDateString('fr-FR')}
+                          {new Date(tierData.date_modification).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
                     </div>
@@ -674,7 +705,7 @@ export default function TierDetail() {
           </div>
         </div>
       </div>
-
+      
       {/* Modales d'édition spécialisées */}
       {tierForEdit && (
         <>
@@ -695,29 +726,28 @@ export default function TierDetail() {
       )}
 
       {/* Formulaire de création d'opportunité */}
-      {tier && (
-        <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Nouvelle opportunité</DialogTitle>
-              <DialogDescription>
-                Créez une nouvelle opportunité pour {tier.name}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <OpportunityForm
-              opportunity={{
-                tierId: tier.id,
-                tierName: tier.name,
-                tierType: tier.type,
-              }}
-              onSubmit={handleFormSubmit}
-              onCancel={() => setFormDialogOpen(false)}
-              isEditing={false}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Nouvelle opportunité</DialogTitle>
+            <DialogDescription>
+              Créez une nouvelle opportunité pour {tierData.nom}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <OpportunityForm
+            opportunity={{
+              tierId: tierData.id,
+              tierName: tierData.nom,
+              tierType: tierData.flags,
+            }}
+            onSubmit={handleFormSubmit}
+            onCancel={() => setFormDialogOpen(false)}
+            isEditing={false}
+          />
+        </DialogContent>
+      </Dialog>
+
     </>
   );
 }

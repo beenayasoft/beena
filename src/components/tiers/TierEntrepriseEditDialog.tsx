@@ -51,6 +51,24 @@ export function TierEntrepriseEditDialog({
           const data = await response.json();
           console.log("TierEntrepriseEditDialog: Données complètes reçues:", data);
           
+          // Extraire les contacts et adresses de la structure onglets si nécessaire
+          let contacts = data.contacts || [];
+          let adresses = data.adresses || [];
+          
+          // Si les données sont dans la structure 'onglets', les extraire
+          if (data.onglets) {
+            console.log("Structure avec onglets détectée, extraction des données...");
+            if (data.onglets.contacts) {
+              contacts = data.onglets.contacts;
+            }
+            if (data.onglets.infos && data.onglets.infos.adresses) {
+              adresses = data.onglets.infos.adresses;
+            }
+          }
+          
+          console.log("Contacts extraits:", contacts);
+          console.log("Adresses extraites:", adresses);
+          
           // Transformer les données en format EntrepriseFormValues
           const formValues: EntrepriseFormValues = {
             raisonSociale: data.nom || '',
@@ -62,7 +80,7 @@ export function TierEntrepriseEditDialog({
             status: data.is_deleted ? 'inactive' : 'active',
             
             // Transformer les contacts
-            contacts: (data.contacts || []).map((contact: any) => ({
+            contacts: contacts.map((contact: any) => ({
               id: contact.id,
               prenom: contact.prenom || '',
               nom: contact.nom || '',
@@ -74,7 +92,7 @@ export function TierEntrepriseEditDialog({
             })),
             
             // Transformer les adresses
-            adresses: (data.adresses || []).map((adresse: any) => ({
+            adresses: adresses.map((adresse: any) => ({
               id: adresse.id,
               libelle: adresse.libelle || '',
               rue: adresse.rue || '',
