@@ -1,7 +1,4 @@
-import axios from 'axios';
-
-// Configuration de l'URL de base de l'API
-const API_URL = ' https://179c-105-72-56-65.ngrok-free.app/api';
+import { apiClient } from './client';
 
 // Types pour les données d'authentification
 export interface LoginCredentials {
@@ -31,28 +28,6 @@ export interface AuthResponse {
     company: string;
   };
 }
-
-// Instance axios avec configuration de base
-const apiClient = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Intercepteur pour ajouter le token d'authentification aux requêtes
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 // Fonctions d'API pour l'authentification
 export const authApi = {
