@@ -48,7 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Quote, QuoteItem, VATRate, QuoteStatus } from "@/lib/types/quote";
 import { getQuoteById } from "@/lib/mock/quotes";
-import { initialTiers } from "@/components/tiers";
+import { initialTiers } from "@/lib/mock/tiers";
 import { formatCurrency } from "@/lib/utils";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -972,7 +972,7 @@ export default function QuoteEditor() {
             {saving ? "Enregistrement..." : "Enregistrer"}
           </Button>
           
-          <Button 
+          <Button  
             className="benaya-button-primary"
             onClick={handleValidateAndSend}
             disabled={saving}

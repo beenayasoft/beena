@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Opportunity, OpportunityStatus, OpportunitySource } from "@/lib/types/opportunity";
-import { initialTiers } from "@/components/tiers";
+import { initialTiers } from "@/lib/mock/tiers";
 import { formatCurrency } from "@/lib/utils";
 
 interface OpportunityFormProps {

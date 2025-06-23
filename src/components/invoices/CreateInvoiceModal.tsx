@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { initialTiers } from "@/components/tiers";
+import { initialTiers } from "@/lib/mock/tiers";
 import { formatCurrency } from "@/lib/utils";
 
 interface CreateInvoiceModalProps {
