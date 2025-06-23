@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configuration de l'URL de base de l'API
-const API_URL = 'https://454b-105-72-56-65.ngrok-free.app/api';
+const API_URL = 'http://localhost:8000/api';
 
 // Types pour les données d'authentification
 export interface LoginCredentials {

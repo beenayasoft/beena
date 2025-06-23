@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Tier } from '@/components/tiers/types';
 
 // URL de l'API
-const API_URL = 'https://454b-105-72-56-65.ngrok-free.app/api';
+const API_URL = 'http://localhost:8000/api';
 
 // Créer une instance axios avec config d'authentification
 const apiClient = axios.create({

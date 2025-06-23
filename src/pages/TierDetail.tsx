@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, Mail, MapPin, Building, User, Tag, Activity, Users, Home } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Building, User, Tag, Activity, Users, Home, Plus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,10 @@ import { tiersApi } from "@/lib/api/tiers";
 import { TierEntrepriseEditDialog } from "@/components/tiers/TierEntrepriseEditDialog";
 import { TierParticulierEditDialog } from "@/components/tiers/TierParticulierEditDialog";
 import type { Tier } from "@/components/tiers/types";
+import { Opportunity } from "@/lib/types/opportunity";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
+import { toast } from "@/hooks/use-toast";
 
 // Types pour les données détaillées du backend
 interface TierDetailData {
@@ -21,8 +25,8 @@ interface TierDetailData {
   tva?: string;
   flags: string[];
   is_deleted: boolean;
-  created_at: string;
-  updated_at: string;
+  date_creation: string;
+  date_modification: string;
   contacts?: Array<{
     id: string;
     prenom: string;
@@ -44,18 +48,10 @@ interface TierDetailData {
   }>;
 }
 
-import { Opportunity } from "@/lib/types/opportunity";
-import { getOpportunities } from "@/lib/mock/opportunities";
-import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
-import { toast } from "@/hooks/use-toast";
-
-
 export default function TierDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getTypeBadge } = useTierUtils();
+  const { getTypeBadge, getStatusBadge } = useTierUtils();
   
   // Fonctions utilitaires pour les badges et l'affichage
   const getBadgeVariant = (flag: string) => {
@@ -91,11 +87,8 @@ export default function TierDetail() {
   const [tierData, setTierData] = useState<TierDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [tier, setTier] = useState<Tier | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const { getTypeBadge, getStatusBadge } = useTierUtils();
   
   // États pour les modales d'édition spécialisées
   const [editEntrepriseDialogOpen, setEditEntrepriseDialogOpen] = useState(false);
@@ -109,7 +102,7 @@ export default function TierDetail() {
   const tierForEdit: Tier | null = tierData ? {
     id: tierData.id,
     name: tierData.nom,
-    type: tierData.type,
+    type: tierData.flags,
     siret: tierData.siret || '',
     contact: '', // Sera recalculé par la modale
     email: '', // Sera recalculé par la modale
@@ -123,15 +116,6 @@ export default function TierDetail() {
       setError("ID du tier manquant");
       setLoading(false);
       return;
-    // Dans une application réelle, vous feriez un appel API ici
-    // Pour l'instant, on utilise les données mockées
-    const foundTier = initialTiers.find(t => t.id === id);
-    if (foundTier) {
-      setTier(foundTier);
-      
-      // Charger les opportunités liées à ce tiers
-      const tierOpportunities = getOpportunities({ tierId: foundTier.id });
-      setOpportunities(tierOpportunities);
     }
 
     const fetchTierData = async () => {
@@ -139,6 +123,7 @@ export default function TierDetail() {
         setLoading(true);
         setError(null);
         
+        console.log("Tentative de récupération du tier avec ID:", id);
         const response = await fetch(`http://localhost:8000/api/tiers/tiers/${id}/vue_360/`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -152,6 +137,32 @@ export default function TierDetail() {
         
         const data = await response.json();
         console.log("Données tier reçues:", data);
+        console.log("Structure de l'API:", {
+          onglets: data.onglets ? "Présent" : "Absent",
+          contacts: Array.isArray(data.contacts) 
+            ? `Présent directement (${data.contacts.length} contacts)` 
+            : (data.onglets?.contacts ? `Présent dans onglets (${data.onglets.contacts.length} contacts)` : "Absent"),
+          adresses: Array.isArray(data.adresses) 
+            ? `Présent directement (${data.adresses.length} adresses)` 
+            : (data.onglets?.infos?.adresses ? `Présent dans onglets.infos (${data.onglets.infos.adresses.length} adresses)` : "Absent"),
+        });
+
+        // Si les données sont dans la structure 'onglets', les remettre à plat
+        if (data.onglets) {
+          console.log("Restructuration des données des onglets");
+          if (data.onglets.contacts) {
+            data.contacts = data.onglets.contacts;
+          }
+          if (data.onglets.infos && data.onglets.infos.adresses) {
+            data.adresses = data.onglets.infos.adresses;
+          }
+          if (data.onglets.activites) {
+            data.activites = data.onglets.activites;
+          }
+          delete data.onglets;
+        }
+
+        console.log("Données tier après restructuration:", data);
         setTierData(data);
       } catch (err) {
         console.error("Erreur lors du chargement du tier:", err);
@@ -193,7 +204,6 @@ export default function TierDetail() {
     }
   };
 
-  if (loading) {
   // Créer une nouvelle opportunité pour ce tiers
   const handleCreateOpportunity = () => {
     setFormDialogOpen(true);
@@ -202,7 +212,6 @@ export default function TierDetail() {
   // Gérer la soumission du formulaire d'opportunité
   const handleFormSubmit = (formData: Partial<Opportunity>) => {
     // Dans une application réelle, vous feriez un appel API ici
-    // Pour l'instant, simulons la création
     console.log("Nouvelle opportunité:", formData);
     
     // Afficher une notification
@@ -218,7 +227,8 @@ export default function TierDetail() {
     navigate("/opportunities");
   };
 
-  if (!tier) {
+  // Si en cours de chargement, afficher un spinner
+  if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center">
@@ -341,8 +351,6 @@ export default function TierDetail() {
                     Relations
                   </TabsTrigger>
                 </TabsList>
-                
-                
               </div>
 
               {/* Contenu des onglets */}
@@ -388,7 +396,7 @@ export default function TierDetail() {
                       <div className="md:col-span-2">
                         <div className="text-sm text-neutral-500 dark:text-neutral-400">Date de création</div>
                         <div className="font-medium">
-                          {new Date(tierData.created_at).toLocaleDateString('fr-FR', {
+                          {new Date(tierData.date_creation).toLocaleDateString('fr-FR', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
@@ -538,13 +546,13 @@ export default function TierDetail() {
                         <div>
                           <span className="text-neutral-500">Créé le:</span>
                           <div className="font-medium">
-                            {new Date(tierData.created_at).toLocaleDateString('fr-FR')}
+                            {new Date(tierData.date_creation).toLocaleDateString('fr-FR')}
                           </div>
                         </div>
                         <div>
                           <span className="text-neutral-500">Modifié le:</span>
                           <div className="font-medium">
-                            {new Date(tierData.updated_at).toLocaleDateString('fr-FR')}
+                            {new Date(tierData.date_modification).toLocaleDateString('fr-FR')}
                           </div>
                         </div>
                       </div>
@@ -587,13 +595,13 @@ export default function TierDetail() {
                       <div>
                         <span className="text-neutral-500 text-xs">Créé le:</span>
                         <div className="font-medium text-sm">
-                          {new Date(tierData.created_at).toLocaleDateString('fr-FR')}
+                          {new Date(tierData.date_creation).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
                       <div>
                         <span className="text-neutral-500 text-xs">Modifié le:</span>
                         <div className="font-medium text-sm">
-                          {new Date(tierData.updated_at).toLocaleDateString('fr-FR')}
+                          {new Date(tierData.date_modification).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
                     </div>
@@ -604,7 +612,7 @@ export default function TierDetail() {
           </div>
         </div>
       </div>
-
+      
       {/* Modales d'édition spécialisées */}
       {tierForEdit && (
         <>
@@ -623,75 +631,6 @@ export default function TierDetail() {
           />
         </>
       )}
-    </>
-        {/* Actions et résumé */}
-        <Card className="benaya-card">
-          <CardHeader>
-            <CardTitle className="text-lg">Actions rapides</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button 
-              className="w-full gap-2 benaya-button-primary" 
-              onClick={handleCreateOpportunity}
-            >
-              <BarChart3 className="h-4 w-4" />
-              Créer une opportunité
-            </Button>
-            <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`tel:${tier.phone.replace(/\s/g, "")}`)}>
-              <Phone className="h-4 w-4" />
-              Appeler
-            </Button>
-            <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`mailto:${tier.email}`)}>
-              <Mail className="h-4 w-4" />
-              Envoyer un email
-            </Button>
-            <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(tier.address)}`)}>
-              <MapPin className="h-4 w-4" />
-              Voir sur la carte
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Opportunités */}
-        <Card className="benaya-card md:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Opportunités</CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleCreateOpportunity}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nouvelle opportunité
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {opportunities.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {opportunities.map(opportunity => (
-                  <OpportunityCard
-                    key={opportunity.id}
-                    opportunity={opportunity}
-                    onView={() => navigate(`/opportunities/${opportunity.id}`)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-neutral-500">
-                <BarChart3 className="w-12 h-12 mx-auto mb-4" />
-                <p className="mb-4">Aucune opportunité pour ce tiers</p>
-                <Button 
-                  onClick={handleCreateOpportunity}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Créer une opportunité
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Formulaire de création d'opportunité */}
       <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
@@ -699,15 +638,15 @@ export default function TierDetail() {
           <DialogHeader>
             <DialogTitle>Nouvelle opportunité</DialogTitle>
             <DialogDescription>
-              Créez une nouvelle opportunité pour {tier.name}
+              Créez une nouvelle opportunité pour {tierData.nom}
             </DialogDescription>
           </DialogHeader>
           
           <OpportunityForm
             opportunity={{
-              tierId: tier.id,
-              tierName: tier.name,
-              tierType: tier.type,
+              tierId: tierData.id,
+              tierName: tierData.nom,
+              tierType: tierData.flags,
             }}
             onSubmit={handleFormSubmit}
             onCancel={() => setFormDialogOpen(false)}
@@ -715,6 +654,6 @@ export default function TierDetail() {
           />
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
