@@ -29,17 +29,17 @@ export function OpportunityFilters({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 p-4 rounded-2xl",
+        "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl",
         "bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl",
         "border border-white/20 dark:border-slate-700/50",
       )}
     >
       {/* Search */}
-      <div className="flex-1 max-w-md">
+      <div className="w-full sm:flex-1 sm:max-w-md">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
           <Input
-            placeholder="Rechercher une opportunité par nom, client..."
+            placeholder="Rechercher une opportunité..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className={cn(
@@ -52,17 +52,17 @@ export function OpportunityFilters({
       </div>
 
       {/* Filter Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
         {/* Date Filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-slate-700/50"
+              className="gap-1 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-slate-700/50 flex-1 sm:flex-none"
             >
-              <Calendar className="w-4 h-4" />
-              Période
+              <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="sm:inline">Période</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -126,30 +126,34 @@ export function OpportunityFilters({
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-slate-700/50"
+              className="gap-1 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-slate-700/50 flex-1 sm:flex-none"
             >
-              <Filter className="w-4 h-4" />
-              Statut
+              <Filter className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="sm:inline">Statut</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>Filtrer par statut</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['new', 'qualifying', 'needs_analysis'])}>
+            <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['new'])}>
               <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-              Qualification
+              Nouvelles
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['proposal', 'negotiation'])}>
+            <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['needs_analysis'])}>
+              <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+              Analyse des besoins
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['negotiation'])}>
               <div className="w-2 h-2 bg-amber-500 rounded-full mr-2"></div>
-              Proposition
+              Négociation
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['won'])}>
               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
               Gagnées
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['lost', 'cancelled'])}>
+            <DropdownMenuItem onClick={() => onStageFilterChange && onStageFilterChange(['lost'])}>
               <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-              Perdues/Annulées
+              Perdues
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -160,10 +164,10 @@ export function OpportunityFilters({
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-slate-700/50"
+              className="gap-1 bg-white/50 dark:bg-slate-800/50 border-white/20 dark:border-slate-700/50 flex-1 sm:flex-none"
             >
-              <SortAsc className="w-4 h-4" />
-              Trier
+              <SortAsc className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="sm:inline">Trier</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

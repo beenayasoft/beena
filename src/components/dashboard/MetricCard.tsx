@@ -99,11 +99,11 @@ export function MetricCard({
         {/* Value */}
         <div className="space-y-1">
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold text-slate-900 dark:text-white">
+            <span className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
               {value}
             </span>
             {currency && (
-              <span className="text-lg font-medium text-slate-600 dark:text-slate-400">
+              <span className="text-sm sm:text-base md:text-lg font-medium text-slate-600 dark:text-slate-400">
                 {currency}
               </span>
             )}
@@ -113,7 +113,7 @@ export function MetricCard({
           {change && (
             <p
               className={cn(
-                "text-sm font-medium",
+                "text-xs sm:text-sm font-medium truncate",
                 changeType === "positive" &&
                   "text-green-600 dark:text-green-400",
                 changeType === "negative" && "text-red-600 dark:text-red-400",

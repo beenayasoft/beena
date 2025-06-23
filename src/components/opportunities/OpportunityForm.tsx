@@ -231,14 +231,10 @@ export function OpportunityForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="new">Nouvelle</SelectItem>
-                <SelectItem value="qualifying">Qualification</SelectItem>
                 <SelectItem value="needs_analysis">Analyse des besoins</SelectItem>
-                <SelectItem value="proposal">Proposition</SelectItem>
                 <SelectItem value="negotiation">Négociation</SelectItem>
                 <SelectItem value="won">Gagnée</SelectItem>
                 <SelectItem value="lost">Perdue</SelectItem>
-                <SelectItem value="on_hold">En attente</SelectItem>
-                <SelectItem value="cancelled">Annulée</SelectItem>
               </SelectContent>
             </Select>
             {errors.stage && (

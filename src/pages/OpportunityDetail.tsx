@@ -71,22 +71,14 @@ export default function OpportunityDetail() {
     switch (stage) {
       case 'new':
         return <Badge className="benaya-badge-primary">Nouvelle</Badge>;
-      case 'qualifying':
-        return <Badge className="benaya-badge-primary">Qualification</Badge>;
       case 'needs_analysis':
         return <Badge className="benaya-badge-primary">Analyse des besoins</Badge>;
-      case 'proposal':
-        return <Badge className="benaya-badge-warning">Proposition</Badge>;
       case 'negotiation':
         return <Badge className="benaya-badge-warning">Négociation</Badge>;
       case 'won':
         return <Badge className="benaya-badge-success">Gagnée</Badge>;
       case 'lost':
         return <Badge className="benaya-badge-error">Perdue</Badge>;
-      case 'cancelled':
-        return <Badge className="benaya-badge-neutral">Annulée</Badge>;
-      case 'on_hold':
-        return <Badge className="benaya-badge-neutral">En attente</Badge>;
       default:
         return <Badge className="benaya-badge-neutral">—</Badge>;
     }
@@ -286,7 +278,7 @@ export default function OpportunityDetail() {
               Modifier
             </Button>
             
-            {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && opportunity.stage !== 'cancelled' && (
+            {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && (
               <Button 
                 className="bg-white text-benaya-900 hover:bg-white/90"
                 onClick={handleCreateQuote}
@@ -443,7 +435,7 @@ export default function OpportunityDetail() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-lg">Devis associés</h3>
               
-              {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && opportunity.stage !== 'cancelled' && (
+              {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && (
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -500,7 +492,7 @@ export default function OpportunityDetail() {
                 Modifier l'opportunité
               </Button>
               
-              {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && opportunity.stage !== 'cancelled' && (
+              {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && (
                 <>
                   <Button 
                     className="w-full justify-start gap-2 benaya-button-primary"

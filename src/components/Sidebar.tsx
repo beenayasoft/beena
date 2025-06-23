@@ -55,7 +55,7 @@ const sales = [
   },
   {
     name: "Bibliothèque d'ouvrages",
-    href: "/bibliotheque-ouvrages",
+    href: "/bibliotheque",
     icon: Hammer,
   },
 ];

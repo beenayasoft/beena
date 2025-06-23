@@ -19,6 +19,9 @@ import NotFound from "@/pages/NotFound";
 import Tiers from "@/pages/Tiers";
 import TierDetail from "@/pages/TierDetail";
 import WorkLibrary from "@/pages/WorkLibrary";
+import MaterialDetail from "@/pages/MaterialDetail";
+import LaborDetail from "@/pages/LaborDetail";
+import WorkDetail from "@/pages/WorkDetail";
 import Opportunities from "@/pages/Opportunities";
 import OpportunityDetail from "@/pages/OpportunityDetail";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -98,7 +101,10 @@ export default function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="tiers" element={<Tiers />} />
               <Route path="tiers/:id" element={<TierDetail />} />
-              <Route path="bibliotheque-ouvrages" element={<WorkLibrary />} />
+              <Route path="bibliotheque" element={<WorkLibrary />} />
+              <Route path="bibliotheque/materiau/:id" element={<MaterialDetail />} />
+              <Route path="bibliotheque/main-oeuvre/:id" element={<LaborDetail />} />
+              <Route path="bibliotheque/ouvrage/:id" element={<WorkDetail />} />
             </Route>
 
             {/* 404 route */}

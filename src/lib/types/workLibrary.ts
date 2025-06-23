@@ -9,7 +9,7 @@ export interface WorkCategory {
   position: number;
 }
 
-// Type de matériau ou produit
+// Type de matériau
 export interface Material {
   id: string;
   reference?: string;
@@ -17,12 +17,9 @@ export interface Material {
   description?: string;
   unit: string;
   unitPrice: number;
-  vatRate: number;
   supplier?: string;
+  vatRate: number; // Taux de TVA en pourcentage
   category?: string;
-  // Lien avec le stock si applicable
-  stockId?: string;
-  stockQuantity?: number;
 }
 
 // Type de main d'œuvre
@@ -77,4 +74,39 @@ export interface WorkFilters {
   maxPrice?: number;
   sortBy?: 'name' | 'reference' | 'totalCost' | 'recommendedPrice';
   sortOrder?: 'asc' | 'desc';
+}
+
+// Union type pour tous les éléments de bibliothèque
+export type LibraryItem = Work | Material | Labor;
+
+// Fonction utilitaire pour détecter le type d'un élément de bibliothèque
+export function getLibraryItemType(item: LibraryItem): 'work' | 'material' | 'labor' {
+  // Détecter un ouvrage (a des composants)
+  if ('components' in item) return 'work';
+  
+  // Détecter un matériau (a vatRate OU supplier)
+  if (('vatRate' in item) || ('supplier' in item)) return 'material';
+  
+  // Par défaut, c'est de la main d'œuvre
+  return 'labor';
+}
+
+// Fonction utilitaire pour obtenir le nom du type en français
+export function getLibraryItemTypeLabel(item: LibraryItem): string {
+  const type = getLibraryItemType(item);
+  switch (type) {
+    case 'work': return 'Ouvrage';
+    case 'material': return 'Matériau';
+    case 'labor': return 'Main d\'œuvre';
+    default: return 'Inconnu';
+  }
+}
+
+// Fonction utilitaire pour filtrer les éléments par type
+export function filterLibraryItemsByType(
+  items: LibraryItem[], 
+  type: 'all' | 'work' | 'material' | 'labor'
+): LibraryItem[] {
+  if (type === 'all') return items;
+  return items.filter(item => getLibraryItemType(item) === type);
 } 

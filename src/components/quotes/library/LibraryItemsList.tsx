@@ -54,6 +54,8 @@ interface LibraryItemsListProps {
   allMaterials: Material[];
   allLabor: Labor[];
   allWorks: Work[];
+  onItemClick?: (item: Work | Material | Labor) => void;
+  onItemEdit?: (item: Work | Material | Labor) => void;
 }
 
 // Interface simplifiée pour les filtres avancés (optionnels)
@@ -81,19 +83,17 @@ export function LibraryItemsList({
   allMaterials,
   allLabor,
   allWorks,
+  onItemClick,
+  onItemEdit,
 }: LibraryItemsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<string>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // Log des items reçus
+  // Log des items reçus - VERSION SIMPLIFIÉE
   useEffect(() => {
-    console.log("LibraryItemsList received items:", items.length);
-    const materialCount = items.filter(item => "vatRate" in item).length;
-    const laborCount = items.filter(item => !("vatRate" in item) && !("components" in item)).length;
-    const workCount = items.filter(item => "components" in item).length;
-    console.log(`Types breakdown - Materials: ${materialCount}, Labor: ${laborCount}, Works: ${workCount}`);
-  }, [items]);
+    // Log supprimé - filtrage fonctionne correctement
+  }, [items, totalItems, currentPage, activeTab]);
 
   // Pagination
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -115,19 +115,33 @@ export function LibraryItemsList({
     onSort(field, newDirection);
   };
 
+  // Fonction pour créer une clé unique pour chaque élément
+  const getUniqueKey = (item: Work | Material | Labor): string => {
+    // Déterminer le type d'élément pour créer une clé unique
+    if ("components" in item) {
+      return `work-${item.id}`;
+    } else if ("vatRate" in item) {
+      return `material-${item.id}`;
+    } else {
+      return `labor-${item.id}`;
+    }
+  };
+
+  // Fonction améliorée pour détecter le type d'élément
   const getItemType = (item: Work | Material | Labor): string => {
+    // Détecter un ouvrage (a des composants)
     if ("components" in item) return "Ouvrage";
+    
+    // Détecter un matériau (a obligatoirement vatRate selon notre interface)
     if ("vatRate" in item) return "Matériau";
+    
+    // Par défaut, c'est de la main d'œuvre
     return "Main d'œuvre";
   };
 
+  // Fonction améliorée pour les badges avec meilleure détection
   const getItemTypeBadge = (item: Work | Material | Labor) => {
-    console.log("Item type check:", 
-      item.id, 
-      item.name, 
-      "components" in item ? "work" : "vatRate" in item ? "material" : "labor"
-    );
-    
+    // Détecter un ouvrage (a des composants)
     if ("components" in item) {
       return (
         <Badge className="benaya-badge-success gap-1">
@@ -136,6 +150,8 @@ export function LibraryItemsList({
         </Badge>
       );
     }
+    
+    // Détecter un matériau (a obligatoirement vatRate selon notre interface)
     if ("vatRate" in item) {
       return (
         <Badge className="benaya-badge-primary gap-1">
@@ -144,6 +160,8 @@ export function LibraryItemsList({
         </Badge>
       );
     }
+    
+    // Par défaut, c'est de la main d'œuvre
     return (
       <Badge className="benaya-badge-warning gap-1">
         <Clock className="w-3 h-3" />
@@ -230,30 +248,10 @@ export function LibraryItemsList({
               </TableRow>
             ) : (
               items.map((item) => {
-                // Vérifier le type de l'élément
-                const isWork = "components" in item;
-                const isMaterial = "vatRate" in item;
-                const isLabor = !isWork && !isMaterial;
-                
                 return (
-                  <TableRow key={item.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+                  <TableRow key={getUniqueKey(item)} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
                     <TableCell>
-                      {isWork ? (
-                        <Badge className="benaya-badge-success gap-1">
-                          <Hammer className="w-3 h-3" />
-                          Ouvrage
-                        </Badge>
-                      ) : isMaterial ? (
-                        <Badge className="benaya-badge-primary gap-1">
-                          <Package className="w-3 h-3" />
-                          Matériau
-                        </Badge>
-                      ) : (
-                        <Badge className="benaya-badge-warning gap-1">
-                          <Clock className="w-3 h-3" />
-                          Main d'œuvre
-                        </Badge>
-                      )}
+                      {getItemTypeBadge(item)}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {"reference" in item ? item.reference || "—" : "—"}
@@ -277,10 +275,22 @@ export function LibraryItemsList({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => onItemClick?.(item)}
+                          title="Voir les détails"
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => onItemEdit?.(item)}
+                          title="Modifier"
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
                       </div>

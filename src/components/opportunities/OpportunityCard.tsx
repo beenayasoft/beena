@@ -66,22 +66,14 @@ export function OpportunityCard({
     switch (stage) {
       case 'new':
         return <Badge className="benaya-badge-primary">Nouvelle</Badge>;
-      case 'qualifying':
-        return <Badge className="benaya-badge-primary">Qualification</Badge>;
       case 'needs_analysis':
         return <Badge className="benaya-badge-primary">Analyse des besoins</Badge>;
-      case 'proposal':
-        return <Badge className="benaya-badge-warning">Proposition</Badge>;
       case 'negotiation':
         return <Badge className="benaya-badge-warning">Négociation</Badge>;
       case 'won':
         return <Badge className="benaya-badge-success">Gagnée</Badge>;
       case 'lost':
         return <Badge className="benaya-badge-error">Perdue</Badge>;
-      case 'cancelled':
-        return <Badge className="benaya-badge-neutral">Annulée</Badge>;
-      case 'on_hold':
-        return <Badge className="benaya-badge-neutral">En attente</Badge>;
       default:
         return <Badge className="benaya-badge-neutral">—</Badge>;
     }
@@ -90,30 +82,29 @@ export function OpportunityCard({
   return (
     <div 
       className={cn(
-        "benaya-card p-4 cursor-grab active:cursor-grabbing transition-all duration-200",
+        "benaya-card p-3 cursor-grab active:cursor-grabbing transition-all duration-200",
         isDragging ? "opacity-50 rotate-3 scale-105 shadow-xl z-50" : "hover:shadow-lg",
         opportunity.stage === 'won' && "border-l-4 border-l-green-500",
         opportunity.stage === 'lost' && "border-l-4 border-l-red-500",
       )}
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <h3 className="font-medium text-neutral-900 dark:text-white">
+          <div className="space-y-1 pr-2">
+            <h3 className="font-medium text-neutral-900 dark:text-white text-sm line-clamp-2">
               {opportunity.name}
             </h3>
             <div className="flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-400">
               <User className="w-3 h-3" />
-              <span>{opportunity.tierName}</span>
+              <span className="truncate max-w-[150px]">{opportunity.tierName}</span>
             </div>
           </div>
-          <div className="flex items-start gap-2">
-            {getStageBadge(opportunity.stage)}
+          <div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="w-4 h-4" />
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <MoreHorizontal className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="benaya-glass">
@@ -129,14 +120,14 @@ export function OpportunityCard({
                     Modifier
                   </DropdownMenuItem>
                 )}
-                {onCreateQuote && opportunity.stage !== 'won' && opportunity.stage !== 'lost' && opportunity.stage !== 'cancelled' && (
+                {onCreateQuote && opportunity.stage !== 'won' && opportunity.stage !== 'lost' && (
                   <DropdownMenuItem onClick={() => onCreateQuote(opportunity)}>
                     <FileText className="mr-2 h-4 w-4" />
                     Créer un devis
                   </DropdownMenuItem>
                 )}
                 
-                {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && opportunity.stage !== 'cancelled' && (
+                {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && (
                   <>
                     <DropdownMenuSeparator />
                     {onMarkAsWon && (
@@ -173,23 +164,23 @@ export function OpportunityCard({
 
         {/* Details */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
               <DollarSign className="w-3 h-3" />
-              <span>Montant estimé:</span>
+              <span>Montant:</span>
             </div>
             <span className="font-semibold">{formatCurrency(opportunity.estimatedAmount)} MAD</span>
           </div>
           
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
               <Calendar className="w-3 h-3" />
-              <span>Date de clôture:</span>
+              <span>Date:</span>
             </div>
             <span>{formatDate(opportunity.expectedCloseDate)}</span>
           </div>
           
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
               <span>Probabilité:</span>
             </div>
@@ -197,20 +188,10 @@ export function OpportunityCard({
               {opportunity.probability}%
             </span>
           </div>
-          
-          {opportunity.assignedTo && (
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
-                <User className="w-3 h-3" />
-                <span>Responsable:</span>
-              </div>
-              <span>{opportunity.assignedTo}</span>
-            </div>
-          )}
         </div>
 
         {/* Progress bar for probability */}
-        <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+        <div className="w-full h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
           <div 
             className={cn(
               "h-full rounded-full",

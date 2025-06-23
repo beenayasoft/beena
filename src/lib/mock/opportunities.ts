@@ -9,7 +9,7 @@ export const mockOpportunities: Opportunity[] = [
     tierId: '1',
     tierName: 'Dupont Construction',
     tierType: ['client'],
-    stage: 'proposal',
+    stage: 'negotiation',
     estimatedAmount: 450000,
     probability: 60,
     expectedCloseDate: '2025-03-15',
@@ -80,7 +80,7 @@ export const mockOpportunities: Opportunity[] = [
     tierId: '5',
     tierName: 'Plomberie Générale',
     tierType: ['sous-traitant'],
-    stage: 'qualifying',
+    stage: 'new',
     estimatedAmount: 85000,
     probability: 20,
     expectedCloseDate: '2025-05-10',
@@ -250,6 +250,46 @@ export const createQuoteFromOpportunity = (opportunityId: string) => {
   // et établir le lien entre les deux
   console.log(`Creating quote from opportunity ${opportunityId}`);
   return { success: true, quoteId: 'new-quote-id' };
+};
+
+// Fonction pour envoyer un devis et mettre à jour le statut de l'opportunité
+export const sendQuote = (quoteId: string) => {
+  // Trouver l'opportunité liée à ce devis
+  const opportunity = mockOpportunities.find(opp => 
+    opp.quoteIds && opp.quoteIds.includes(quoteId)
+  );
+  
+  if (!opportunity) return { success: false, message: "Opportunité non trouvée" };
+  
+  // Si l'opportunité est en "Analyse des besoins", la passer en "Négociation"
+  if (opportunity.stage === 'needs_analysis') {
+    updateOpportunity(opportunity.id, { 
+      stage: 'negotiation',
+      probability: 60
+    });
+  }
+  
+  return { success: true, opportunityId: opportunity.id };
+};
+
+// Fonction pour marquer un devis comme accepté et mettre à jour le statut de l'opportunité
+export const acceptQuote = (quoteId: string) => {
+  // Trouver l'opportunité liée à ce devis
+  const opportunity = mockOpportunities.find(opp => 
+    opp.quoteIds && opp.quoteIds.includes(quoteId)
+  );
+  
+  if (!opportunity) return { success: false, message: "Opportunité non trouvée" };
+  
+  // Si l'opportunité est en "Négociation", la passer en "Gagnée"
+  if (opportunity.stage === 'negotiation') {
+    updateOpportunity(opportunity.id, { 
+      stage: 'won',
+      probability: 100
+    });
+  }
+  
+  return { success: true, opportunityId: opportunity.id };
 };
 
 // Fonction pour créer un projet à partir d'une opportunité gagnée

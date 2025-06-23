@@ -2,15 +2,11 @@ import { Tier } from "@/components/tiers/types";
 
 // Statuts possibles pour une opportunité
 export type OpportunityStatus = 
-  | 'new'        // Nouvelle
-  | 'qualifying' // En qualification
+  | 'new'           // Nouvelle
   | 'needs_analysis' // Analyse des besoins
-  | 'proposal'   // Proposition
-  | 'negotiation' // Négociation
-  | 'won'        // Gagnée
-  | 'lost'       // Perdue
-  | 'cancelled'  // Annulée
-  | 'on_hold';   // En attente
+  | 'negotiation'   // Négociation
+  | 'won'           // Gagnée
+  | 'lost';         // Perdue
 
 // Sources possibles pour une opportunité
 export type OpportunitySource =

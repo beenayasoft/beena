@@ -49,6 +49,7 @@ import { Separator } from "@/components/ui/separator";
 import { Quote, QuoteItem, VATRate, QuoteStatus } from "@/lib/types/quote";
 import { getQuoteById } from "@/lib/mock/quotes";
 import { initialTiers } from "@/lib/mock/tiers";
+import { sendQuote } from "@/lib/mock/opportunities";
 import { formatCurrency } from "@/lib/utils";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -385,6 +386,23 @@ export default function QuoteEditor() {
         
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Mettre à jour le statut du devis à "sent"
+        const updatedQuote = {
+          ...quote,
+          status: "sent" as QuoteStatus
+        };
+        
+        // Mettre à jour le statut de l'opportunité liée
+        if (quote.id && quote.opportunityId) {
+          const result = sendQuote(quote.id);
+          if (result.success) {
+            console.log(`Opportunité ${result.opportunityId} mise à jour avec succès`);
+          }
+        }
+        
+        // Afficher une notification de succès
+        alert("Devis envoyé avec succès. L'opportunité liée a été mise à jour.");
         
         // Navigate back to quote list
         navigate("/devis");

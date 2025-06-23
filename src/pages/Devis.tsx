@@ -19,6 +19,7 @@ import { QuotesStats } from "@/components/quotes/QuotesStats";
 import { QuotesFilters } from "@/components/quotes/QuotesFilters";
 import { QuotesTabs } from "@/components/quotes/list/QuotesTabs";
 import { getQuotes, getQuotesStats } from "@/lib/mock/quotes";
+import { acceptQuote, sendQuote } from "@/lib/mock/opportunities";
 import { Quote, QuoteStatus } from "@/lib/types/quote";
 
 export default function Devis() {
@@ -78,13 +79,83 @@ export default function Devis() {
   };
 
   const handleSendQuote = (quote: Quote) => {
-    // Implémenter l'envoi du devis
+    // Mettre à jour le statut du devis à "sent"
     console.log("Envoyer devis:", quote.id);
+    
+    // Mettre à jour le statut de l'opportunité liée
+    if (quote.id) {
+      const result = sendQuote(quote.id);
+      if (result.success) {
+        console.log(`Opportunité ${result.opportunityId} mise à jour avec succès`);
+        
+        // Rafraîchir les données
+        const quoteStats = getQuotesStats();
+        setStats({
+          all: quoteStats.total,
+          draft: quoteStats.draft,
+          sent: quoteStats.sent,
+          accepted: quoteStats.accepted,
+          rejected: quoteStats.rejected,
+          expired: quoteStats.expired,
+          cancelled: quoteStats.cancelled,
+        });
+        
+        // Filtrer les devis selon l'onglet actif
+        let statusFilter: QuoteStatus | undefined;
+        if (activeTab !== "all") {
+          statusFilter = activeTab as QuoteStatus;
+        }
+        
+        const filteredQuotes = getQuotes({
+          status: statusFilter,
+          search: searchQuery,
+        });
+        setQuotes(filteredQuotes);
+        
+        // Afficher une notification de succès
+        alert("Devis envoyé avec succès. L'opportunité liée a été mise à jour en phase de 'Négociation'.");
+      }
+    }
   };
 
   const handleAcceptQuote = (quote: Quote) => {
-    // Implémenter l'acceptation du devis
+    // Mettre à jour le statut du devis à "accepted"
     console.log("Accepter devis:", quote.id);
+    
+    // Mettre à jour le statut de l'opportunité liée
+    if (quote.id) {
+      const result = acceptQuote(quote.id);
+      if (result.success) {
+        console.log(`Opportunité ${result.opportunityId} mise à jour avec succès`);
+        
+        // Rafraîchir les données
+        const quoteStats = getQuotesStats();
+        setStats({
+          all: quoteStats.total,
+          draft: quoteStats.draft,
+          sent: quoteStats.sent,
+          accepted: quoteStats.accepted,
+          rejected: quoteStats.rejected,
+          expired: quoteStats.expired,
+          cancelled: quoteStats.cancelled,
+        });
+        
+        // Filtrer les devis selon l'onglet actif
+        let statusFilter: QuoteStatus | undefined;
+        if (activeTab !== "all") {
+          statusFilter = activeTab as QuoteStatus;
+        }
+        
+        const filteredQuotes = getQuotes({
+          status: statusFilter,
+          search: searchQuery,
+        });
+        setQuotes(filteredQuotes);
+        
+        // Afficher une notification de succès
+        alert("Devis accepté avec succès. L'opportunité liée a été mise à jour en tant que 'Gagnée'.");
+      }
+    }
   };
 
   const handleRejectQuote = (quote: Quote) => {

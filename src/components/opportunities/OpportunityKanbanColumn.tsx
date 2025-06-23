@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OpportunityCard } from "./OpportunityCard";
+import { OpportunitySortableItem } from "./OpportunitySortableItem";
 import { Opportunity, OpportunityStatus } from "@/lib/types/opportunity";
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
@@ -43,41 +44,60 @@ export function OpportunityKanbanColumn({
     id: stage,
   });
 
+  // Pagination
+  const itemsPerPage = 2;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(opportunities.length / itemsPerPage);
+  
+  // Get current opportunities
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentOpportunities = opportunities.slice(indexOfFirstItem, indexOfLastItem);
+  
+  // Change page
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
   // Obtenir la couleur de l'en-tête en fonction du statut
   const getHeaderColor = (stage: OpportunityStatus) => {
     switch (stage) {
       case 'new':
-      case 'qualifying':
-      case 'needs_analysis':
         return "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700";
-      case 'proposal':
+      case 'needs_analysis':
+        return "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700";
       case 'negotiation':
         return "bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700";
       case 'won':
         return "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700";
       case 'lost':
-      case 'cancelled':
         return "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-700";
-      case 'on_hold':
-        return "bg-neutral-100 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700";
       default:
         return "bg-neutral-100 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700";
     }
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full">
       {/* Column Header */}
       <div 
         className={cn(
-          "p-4 rounded-xl border mb-4",
+          "p-3 rounded-xl border mb-3",
           getHeaderColor(stage)
         )}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-neutral-900 dark:text-white">{title}</h3>
-            <Badge className="bg-white/50 dark:bg-neutral-800/50 text-neutral-700 dark:text-neutral-300">
+            <h3 className="font-semibold text-neutral-900 dark:text-white text-sm">{title}</h3>
+            <Badge className="bg-white/50 dark:bg-neutral-800/50 text-neutral-700 dark:text-neutral-300 text-xs">
               {count}
             </Badge>
           </div>
@@ -85,10 +105,10 @@ export function OpportunityKanbanColumn({
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-7 w-7"
+              className="h-6 w-6"
               onClick={() => onAddNew(stage)}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3 w-3" />
             </Button>
           )}
         </div>
@@ -97,14 +117,14 @@ export function OpportunityKanbanColumn({
       {/* Column Content */}
       <div 
         ref={setNodeRef}
-        className="flex-1 space-y-4 min-h-[200px] overflow-y-auto max-h-[calc(100vh-300px)] p-1"
+        className="flex-1 space-y-3 min-h-[200px] overflow-y-auto max-h-[calc(100vh-300px)] p-1"
       >
         <SortableContext 
           items={opportunities.map(o => o.id)} 
           strategy={verticalListSortingStrategy}
         >
-          {opportunities.map((opportunity) => (
-            <OpportunityCard
+          {currentOpportunities.map((opportunity) => (
+            <OpportunitySortableItem
               key={opportunity.id}
               opportunity={opportunity}
               onView={onView}
@@ -114,7 +134,6 @@ export function OpportunityKanbanColumn({
               onCreateQuote={onCreateQuote}
               onMarkAsWon={onMarkAsWon}
               onMarkAsLost={onMarkAsLost}
-              isDragging={activeId === opportunity.id}
             />
           ))}
         </SortableContext>
@@ -125,15 +144,44 @@ export function OpportunityKanbanColumn({
           </div>
         )}
 
+        {/* Pagination controls */}
+        {opportunities.length > itemsPerPage && (
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={prevPage} 
+              disabled={currentPage === 1}
+              className="h-7 w-7 p-0"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            
+            <span className="text-xs text-neutral-600 dark:text-neutral-400">
+              {currentPage} / {totalPages}
+            </span>
+            
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={nextPage} 
+              disabled={currentPage === totalPages}
+              className="h-7 w-7 p-0"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+
         {/* Add new opportunity button */}
         {onAddNew && (
           <Button 
             variant="outline" 
-            className="w-full border-dashed"
+            className="w-full border-dashed mt-3 text-xs py-1 h-auto"
             onClick={() => onAddNew(stage)}
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter une opportunité
+            <Plus className="h-3 w-3 mr-1" />
+            Ajouter
           </Button>
         )}
       </div>

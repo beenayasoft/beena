@@ -16,7 +16,7 @@ interface OpportunityStatsProps {
 
 export function OpportunityStats({ stats }: OpportunityStatsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
       <MetricCard
         title="Total opportunités"
         value={stats.total.toString()}
@@ -28,9 +28,8 @@ export function OpportunityStats({ stats }: OpportunityStatsProps) {
       <MetricCard
         title="En cours"
         value={(
-          (stats.byStage.qualifying || 0) + 
+          (stats.byStage.new || 0) + 
           (stats.byStage.needs_analysis || 0) + 
-          (stats.byStage.proposal || 0) + 
           (stats.byStage.negotiation || 0)
         ).toString()}
         change={formatCurrency(stats.weightedAmount) + " MAD"}

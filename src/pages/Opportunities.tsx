@@ -28,16 +28,15 @@ import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { OpportunityLossForm } from "@/components/opportunities/OpportunityLossForm";
 import { Opportunity, OpportunityStatus, LossReason } from "@/lib/types/opportunity";
 import { getOpportunities, getOpportunityStats, updateOpportunity, createOpportunity, deleteOpportunity, createQuoteFromOpportunity } from "@/lib/mock/opportunities";
-import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, PointerSensor, useSensor, useSensors, DragOverlay, closestCorners } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "@/hooks/use-toast";
+import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
 
 // Définition des colonnes du Kanban
 const kanbanColumns = [
   { id: "new", title: "Nouvelles", status: "new" as OpportunityStatus },
-  { id: "qualifying", title: "Qualification", status: "qualifying" as OpportunityStatus },
   { id: "needs_analysis", title: "Analyse des besoins", status: "needs_analysis" as OpportunityStatus },
-  { id: "proposal", title: "Proposition", status: "proposal" as OpportunityStatus },
   { id: "negotiation", title: "Négociation", status: "negotiation" as OpportunityStatus },
   { id: "won", title: "Gagnées", status: "won" as OpportunityStatus },
   { id: "lost", title: "Perdues", status: "lost" as OpportunityStatus },
@@ -80,6 +79,19 @@ export default function Opportunities() {
     setActiveId(event.active.id as string);
   };
 
+  // Gérer le survol pendant le glisser-déposer
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    
+    if (!over) return;
+    
+    const activeId = active.id as string;
+    const overId = over.id as string;
+    
+    // Nous n'avons pas besoin de faire des changements pendant le survol
+    // mais cette fonction peut être utilisée pour des animations ou des effets visuels
+  };
+
   // Gérer la fin du glisser-déposer
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -100,6 +112,12 @@ export default function Opportunities() {
     const targetColumn = kanbanColumns.find(col => col.id === overId);
     if (targetColumn) {
       newStatus = targetColumn.status;
+    } else {
+      // Si elle a été déposée sur une autre opportunité, trouver la colonne de cette opportunité
+      const overOpportunity = opportunities.find(opp => opp.id === overId);
+      if (overOpportunity) {
+        newStatus = overOpportunity.stage;
+      }
     }
     
     // Mettre à jour le statut de l'opportunité si nécessaire
@@ -119,7 +137,31 @@ export default function Opportunities() {
 
   // Gérer le changement de statut d'une opportunité
   const handleStageChange = (opportunity: Opportunity, newStage: OpportunityStatus) => {
-    const updatedOpportunity = updateOpportunity(opportunity.id, { stage: newStage });
+    // Déterminer la nouvelle probabilité en fonction du statut
+    let newProbability = opportunity.probability;
+    switch (newStage) {
+      case 'new':
+        newProbability = 10;
+        break;
+      case 'needs_analysis':
+        newProbability = 30;
+        break;
+      case 'negotiation':
+        newProbability = 60;
+        break;
+      case 'won':
+        newProbability = 100;
+        break;
+      case 'lost':
+        newProbability = 0;
+        break;
+    }
+
+    const updatedOpportunity = updateOpportunity(opportunity.id, { 
+      stage: newStage,
+      probability: newProbability
+    });
+    
     if (updatedOpportunity) {
       // Mettre à jour la liste des opportunités
       setOpportunities(opportunities.map(opp => 
@@ -134,13 +176,10 @@ export default function Opportunities() {
         title: "Opportunité mise à jour",
         description: `L'opportunité a été déplacée vers "${
           newStage === 'new' ? 'Nouvelles' :
-          newStage === 'qualifying' ? 'Qualification' :
           newStage === 'needs_analysis' ? 'Analyse des besoins' :
-          newStage === 'proposal' ? 'Proposition' :
           newStage === 'negotiation' ? 'Négociation' :
           newStage === 'won' ? 'Gagnées' :
-          newStage === 'lost' ? 'Perdues' :
-          newStage === 'cancelled' ? 'Annulées' : 'En attente'
+          newStage === 'lost' ? 'Perdues' : 'En attente'
         }"`,
       });
     }
@@ -298,15 +337,15 @@ export default function Opportunities() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="benaya-card benaya-gradient text-white">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Opportunités</h1>
-            <p className="text-benaya-100 mt-1">
-              Gérez votre pipeline commercial et suivez vos affaires
+            <h1 className="text-xl sm:text-2xl font-bold">Opportunités</h1>
+            <p className="text-benaya-100 text-sm mt-1">
+              Gérez votre pipeline commercial
             </p>
           </div>
           <Button 
-            className="gap-2 bg-white text-benaya-900 hover:bg-white/90"
+            className="gap-2 bg-white text-benaya-900 hover:bg-white/90 mt-3 sm:mt-0"
             onClick={() => handleAddNew()}
           >
             <Plus className="w-4 h-4" />
@@ -327,29 +366,42 @@ export default function Opportunities() {
       {/* Kanban Board */}
       <DndContext
         sensors={sensors}
+        collisionDetection={closestCorners}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-7 gap-6 overflow-x-auto pb-6">
+        <div className="flex overflow-x-auto pb-6 gap-4">
           {kanbanColumns.map((column) => (
-            <OpportunityKanbanColumn
-              key={column.id}
-              title={column.title}
-              stage={column.status}
-              opportunities={getOpportunitiesByStatus(column.status)}
-              count={getOpportunitiesByStatus(column.status).length}
-              onView={handleViewOpportunity}
-              onEdit={handleEditOpportunity}
-              onDelete={handleDeleteOpportunity}
-              onStageChange={handleStageChange}
-              onCreateQuote={handleCreateQuote}
-              onMarkAsWon={handleMarkAsWon}
-              onMarkAsLost={handleMarkAsLost}
-              onAddNew={handleAddNew}
-              activeId={activeId}
-            />
+            <div key={column.id} className="flex-shrink-0 w-[300px] md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(20%-13px)]">
+              <OpportunityKanbanColumn
+                title={column.title}
+                stage={column.status}
+                opportunities={getOpportunitiesByStatus(column.status)}
+                count={getOpportunitiesByStatus(column.status).length}
+                onView={handleViewOpportunity}
+                onEdit={handleEditOpportunity}
+                onDelete={handleDeleteOpportunity}
+                onStageChange={handleStageChange}
+                onCreateQuote={handleCreateQuote}
+                onMarkAsWon={handleMarkAsWon}
+                onMarkAsLost={handleMarkAsLost}
+                onAddNew={handleAddNew}
+                activeId={activeId}
+              />
+            </div>
           ))}
         </div>
+        
+        {/* DragOverlay pour afficher l'élément en cours de déplacement */}
+        {activeId && activeOpportunity ? (
+          <DragOverlay>
+            <OpportunityCard
+              opportunity={activeOpportunity}
+              isDragging={true}
+            />
+          </DragOverlay>
+        ) : null}
       </DndContext>
 
       {/* Opportunity Form Dialog */}
