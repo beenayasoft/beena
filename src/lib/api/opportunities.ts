@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Opportunity, OpportunityFilters } from '../types/opportunity';
 
 // Configuration de l'URL de base de l'API
+
 const API_URL = 'http://localhost:8000/api';
 
 // Instance axios avec configuration de base

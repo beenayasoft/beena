@@ -1,128 +1,24 @@
-import { useState } from "react";
 import { Eye, EyeOff, Mail, Lock, User, Building, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-type AuthMode = "login" | "signup";
+import { useAuthForm } from "@/hooks/useAuthForm";
 
 export default function Auth() {
-  const [mode, setMode] = useState<AuthMode>("login");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const { login, register, error } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { toast } = useToast();
-  
-  // Récupérer l'URL de redirection si elle existe
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
-
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    password2: "",
-    first_name: "",
-    last_name: "",
-    username: "",
-    company: "",
-    acceptTerms: false,
-  });
-
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    // Réinitialiser les erreurs lorsque l'utilisateur modifie un champ
-    setFormError(null);
-  };
-
-  // Séparer le nom complet en prénom et nom
-  const splitName = (fullName: string) => {
-    const parts = fullName.trim().split(' ');
-    if (parts.length === 1) {
-      return { first_name: parts[0], last_name: '' };
-    }
-    const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ');
-    return { first_name: firstName, last_name: lastName };
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setFormError(null);
-    
-    try {
-      if (mode === "login") {
-        // Connexion
-        await login({
-          email: formData.email,
-          password: formData.password,
-        });
-        
-        // Afficher un toast de succès
-        toast({
-          title: "Connexion réussie",
-          description: "Bienvenue sur votre espace Benaya",
-        });
-        
-        // Rediriger vers la page précédente ou le tableau de bord
-        navigate(from);
-      } else {
-        // Inscription
-        // Vérifier que les mots de passe correspondent
-        if (formData.password !== formData.password2) {
-          setFormError("Les mots de passe ne correspondent pas");
-          setIsSubmitting(false);
-          return;
-        }
-        
-        // Vérifier que les conditions sont acceptées
-        if (!formData.acceptTerms) {
-          setFormError("Vous devez accepter les conditions d'utilisation");
-          setIsSubmitting(false);
-          return;
-        }
-        
-        // Séparer le nom complet en prénom et nom
-        const { first_name, last_name } = splitName(formData.first_name);
-        
-        // Créer un nom d'utilisateur à partir de l'email si non fourni
-        const username = formData.username || formData.email.split('@')[0];
-        
-        // Préparer les données pour l'inscription
-        await register({
-          email: formData.email,
-          username: username,
-          password: formData.password,
-          password2: formData.password2,
-          first_name: first_name,
-          last_name: last_name,
-          company: formData.company,
-        });
-        
-        // Afficher un toast de succès
-        toast({
-          title: "Inscription réussie",
-          description: "Votre compte a été créé avec succès",
-        });
-        
-        // Rediriger vers le tableau de bord
-        navigate("/");
-      }
-    } catch (error: any) {
-      // Afficher l'erreur
-      setFormError(error.response?.data?.detail || error.message || "Une erreur s'est produite");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const {
+    mode,
+    setMode,
+    formData,
+    handleInputChange,
+    isSubmitting,
+    showPassword,
+    toggleShowPassword,
+    formError,
+    submit,
+    backendError: error,
+  } = useAuthForm("login");
 
   return (
     <div className="min-h-screen flex">
@@ -256,25 +152,45 @@ export default function Auth() {
           )}
 
           {/* Auth Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Name Field (Signup only) */}
+          <form onSubmit={submit} className="space-y-6">
+            {/* Name Fields (Signup only) */}
             {mode === "signup" && (
-              <div className="space-y-2">
-                <Label
-                  htmlFor="first_name"
-                  className="text-neutral-900 dark:text-white"
-                >
-                  Nom complet
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="first_name"
+                    className="text-neutral-900 dark:text-white"
+                  >
+                    Prénom
+                  </Label>
                   <Input
                     id="first_name"
                     type="text"
-                    placeholder="Jean Dupont"
+                    placeholder="Jean"
                     value={formData.first_name}
-                    onChange={(e) => handleInputChange("first_name", e.target.value)}
-                    className="pl-10 benaya-input"
+                    onChange={(e) =>
+                      handleInputChange("first_name", e.target.value)
+                    }
+                    className="benaya-input"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="last_name"
+                    className="text-neutral-900 dark:text-white"
+                  >
+                    Nom
+                  </Label>
+                  <Input
+                    id="last_name"
+                    type="text"
+                    placeholder="Dupont"
+                    value={formData.last_name}
+                    onChange={(e) =>
+                      handleInputChange("last_name", e.target.value)
+                    }
+                    className="benaya-input"
                     required
                   />
                 </div>
@@ -355,7 +271,7 @@ export default function Auth() {
                   variant="ghost"
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3 text-neutral-400 hover:text-neutral-600"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={toggleShowPassword}
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -448,7 +364,6 @@ export default function Auth() {
                   className="text-benaya-900 hover:underline p-1 ml-1"
                   onClick={() => {
                     setMode(mode === "login" ? "signup" : "login");
-                    setFormError(null);
                   }}
                 >
                   {mode === "login" ? "Créer un compte" : "Se connecter"}

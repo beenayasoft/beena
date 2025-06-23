@@ -972,7 +972,7 @@ export default function QuoteEditor() {
             {saving ? "Enregistrement..." : "Enregistrer"}
           </Button>
           
-          <Button 
+          <Button  
             className="benaya-button-primary"
             onClick={handleValidateAndSend}
             disabled={saving}

@@ -48,6 +48,15 @@ interface TierDetailData {
   }>;
 }
 
+
+import { Opportunity } from "@/lib/types/opportunity";
+import { getOpportunities } from "@/lib/mock/opportunities";
+import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
+import { toast } from "@/hooks/use-toast";
+import { initialTiers } from "@/lib/mock/tiers";
+
 export default function TierDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -116,6 +125,18 @@ export default function TierDetail() {
       setError("ID du tier manquant");
       setLoading(false);
       return;
+
+    }
+    
+    // Dans une application réelle, vous feriez un appel API ici
+    // Pour l'instant, on utilise les données mockées
+    const foundTier = initialTiers.find(t => t.id === id);
+    if (foundTier) {
+      setTier(foundTier);
+      
+      // Charger les opportunités liées à ce tiers
+      const tierOpportunities = getOpportunities({ tierId: foundTier.id });
+      setOpportunities(tierOpportunities);
     }
 
     const fetchTierData = async () => {
@@ -609,6 +630,78 @@ export default function TierDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Actions et résumé */}
+            {tier && (
+              <Card className="benaya-card mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">Actions rapides</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    className="w-full gap-2 benaya-button-primary" 
+                    onClick={handleCreateOpportunity}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Créer une opportunité
+                  </Button>
+                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`tel:${tier.phone.replace(/\s/g, "")}`)}>
+                    <Phone className="h-4 w-4" />
+                    Appeler
+                  </Button>
+                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`mailto:${tier.email}`)}>
+                    <Mail className="h-4 w-4" />
+                    Envoyer un email
+                  </Button>
+                  <Button className="w-full gap-2" variant="outline" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(tier.address)}`)}>
+                    <MapPin className="h-4 w-4" />
+                    Voir sur la carte
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Opportunités */}
+            {tier && (
+              <Card className="benaya-card mt-6">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Opportunités</CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleCreateOpportunity}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nouvelle opportunité
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {opportunities.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {opportunities.map(opportunity => (
+                        <OpportunityCard
+                          key={opportunity.id}
+                          opportunity={opportunity}
+                          onView={() => navigate(`/opportunities/${opportunity.id}`)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-neutral-500">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4" />
+                      <p className="mb-4">Aucune opportunité pour ce tiers</p>
+                      <Button 
+                        onClick={handleCreateOpportunity}
+                        className="gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Créer une opportunité
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
@@ -654,6 +747,7 @@ export default function TierDetail() {
           />
         </DialogContent>
       </Dialog>
+
     </>
   );
 }
