@@ -18,49 +18,59 @@ import { QuotesList } from "@/components/quotes/list/QuotesList";
 import { QuotesStats } from "@/components/quotes/QuotesStats";
 import { QuotesFilters } from "@/components/quotes/QuotesFilters";
 import { QuotesTabs } from "@/components/quotes/list/QuotesTabs";
-import { getQuotes, getQuotesStats } from "@/lib/mock/quotes";
-import { acceptQuote, sendQuote } from "@/lib/mock/opportunities";
-import { Quote, QuoteStatus } from "@/lib/types/quote";
+import { quotesApi, Quote, QuoteStats } from "@/lib/api/quotes";
+import { QuoteStatus } from "@/lib/types/quote";
 
 export default function Devis() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [stats, setStats] = useState({
-    all: 0,
+  const [stats, setStats] = useState<QuoteStats>({
+    total: 0,
     draft: 0,
     sent: 0,
     accepted: 0,
     rejected: 0,
     expired: 0,
     cancelled: 0,
+    total_amount: 0,
+    acceptance_rate: 0,
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Charger les devis et statistiques
   useEffect(() => {
-    const quoteStats = getQuotesStats();
-    setStats({
-      all: quoteStats.total,
-      draft: quoteStats.draft,
-      sent: quoteStats.sent,
-      accepted: quoteStats.accepted,
-      rejected: quoteStats.rejected,
-      expired: quoteStats.expired,
-      cancelled: quoteStats.cancelled,
-    });
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    // Filtrer les devis selon l'onglet actif
-    let statusFilter: QuoteStatus | undefined;
-    if (activeTab !== "all") {
-      statusFilter = activeTab as QuoteStatus;
-    }
+        // Charger les statistiques
+        const quoteStats = await quotesApi.getStats();
+        setStats(quoteStats);
 
-    const filteredQuotes = getQuotes({
-      status: statusFilter,
-      search: searchQuery,
-    });
-    setQuotes(filteredQuotes);
+        // Filtrer les devis selon l'onglet actif
+        let statusFilter: string | undefined;
+        if (activeTab !== "all") {
+          statusFilter = activeTab;
+        }
+
+        const filteredQuotes = await quotesApi.getQuotes({
+          status: statusFilter,
+          search: searchQuery || undefined,
+        });
+        setQuotes(filteredQuotes);
+      } catch (err) {
+        console.error("Erreur lors du chargement des devis:", err);
+        setError("Erreur lors du chargement des devis");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, [activeTab, searchQuery]);
 
   const handleViewQuote = (quote: Quote) => {
@@ -78,43 +88,18 @@ export default function Devis() {
     console.log("Supprimer devis:", quote.id);
   };
 
-  const handleSendQuote = (quote: Quote) => {
-    // Mettre à jour le statut du devis à "sent"
-    console.log("Envoyer devis:", quote.id);
-    
-    // Mettre à jour le statut de l'opportunité liée
-    if (quote.id) {
-      const result = sendQuote(quote.id);
-      if (result.success) {
-        console.log(`Opportunité ${result.opportunityId} mise à jour avec succès`);
-        
-        // Rafraîchir les données
-        const quoteStats = getQuotesStats();
-        setStats({
-          all: quoteStats.total,
-          draft: quoteStats.draft,
-          sent: quoteStats.sent,
-          accepted: quoteStats.accepted,
-          rejected: quoteStats.rejected,
-          expired: quoteStats.expired,
-          cancelled: quoteStats.cancelled,
-        });
-        
-        // Filtrer les devis selon l'onglet actif
-        let statusFilter: QuoteStatus | undefined;
-        if (activeTab !== "all") {
-          statusFilter = activeTab as QuoteStatus;
-        }
-        
-        const filteredQuotes = getQuotes({
-          status: statusFilter,
-          search: searchQuery,
-        });
-        setQuotes(filteredQuotes);
-        
-        // Afficher une notification de succès
-        alert("Devis envoyé avec succès. L'opportunité liée a été mise à jour en phase de 'Négociation'.");
-      }
+  const handleSendQuote = async (quote: Quote) => {
+    try {
+      await quotesApi.markAsSent(quote.id, "Devis envoyé depuis l'interface");
+      
+      // Rafraîchir les données
+      await refreshData();
+      
+      // Afficher une notification de succès
+      alert("Devis envoyé avec succès !");
+    } catch (error) {
+      console.error("Erreur lors de l'envoi du devis:", error);
+      alert("Erreur lors de l'envoi du devis");
     }
   };
 

@@ -47,9 +47,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Quote, QuoteItem, VATRate, QuoteStatus } from "@/lib/types/quote";
-import { getQuoteById } from "@/lib/mock/quotes";
-import { initialTiers } from "@/lib/mock/tiers";
-import { sendQuote } from "@/lib/mock/opportunities";
+import { quotesApi, QuoteDetail, CreateQuoteData, CreateQuoteItemData } from "@/lib/api/quotes";
+import { tiersApi } from "@/lib/api/tiers";
+import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -61,13 +61,14 @@ import { DiscountForm } from "@/components/quotes/editor/DiscountForm";
 export default function QuoteEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const isNewQuote = id === "new";
-  const [activeTab, setActiveTab] = useState("details");
+  const isNewQuote = id === "new" || id === "nouveau";
+  const [activeTab, setActiveTab] = useState<"details" | "items">("details");
   const [loading, setLoading] = useState(!isNewQuote);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
-  const [showTaxIncluded, setShowTaxIncluded] = useState(true);
+  const [showTaxIncluded, setShowTaxIncluded] = useState(false);
+  const [workInProgressRestored, setWorkInProgressRestored] = useState(false);
 
   // Modals
   const [itemFormOpen, setItemFormOpen] = useState(false);
@@ -99,24 +100,97 @@ export default function QuoteEditor() {
 
   // Load quote data if editing
   useEffect(() => {
-    if (!isNewQuote && id) {
-      try {
-        const quoteData = getQuoteById(id);
-        if (quoteData) {
-          setQuote(quoteData);
-        } else {
-          setError("Devis non trouvé");
+    const loadQuoteData = async () => {
+      // D'abord, essayer de restaurer les données de travail en cours depuis sessionStorage
+      const workInProgressKey = isNewQuote ? 'newQuoteWorkInProgress' : `quoteWorkInProgress_${id}`;
+      const workInProgress = sessionStorage.getItem(workInProgressKey);
+      
+      if (workInProgress) {
+        try {
+          const restoredQuote = JSON.parse(workInProgress);
+          console.log("Restauration des données de travail en cours:", restoredQuote);
+          setQuote(restoredQuote);
+          setLoading(false);
+          setWorkInProgressRestored(true);
+          toast.info("Votre travail en cours a été restauré");
+          return;
+        } catch (err) {
+          console.error("Erreur lors de la restauration des données de travail:", err);
+          // Continuer avec le chargement normal
         }
-      } catch (err) {
-        setError("Erreur lors du chargement du devis");
-        console.error(err);
-      } finally {
+      }
+
+      if (!isNewQuote && id) {
+        try {
+          setLoading(true);
+          const quoteData = await quotesApi.getQuote(id);
+          
+          // Adapter les données de l'API au format local
+          const adaptedQuote: Partial<Quote> = {
+            id: quoteData.id,
+            number: quoteData.number,
+            clientId: quoteData.tier,
+            clientName: quoteData.client_name,
+            clientAddress: quoteData.client_address,
+            projectName: quoteData.project_name,
+            projectAddress: quoteData.project_address,
+            issueDate: quoteData.issue_date,
+            validityPeriod: quoteData.validity_period,
+            notes: quoteData.notes,
+            termsAndConditions: quoteData.terms_and_conditions,
+            totalHT: quoteData.total_ht,
+            totalVAT: quoteData.total_vat,
+            totalTTC: quoteData.total_ttc,
+            status: quoteData.status as QuoteStatus,
+            items: quoteData.items?.map(item => ({
+              id: item.id,
+              type: item.type as any,
+              parentId: item.parent,
+              position: item.position,
+              designation: item.designation,
+              description: item.description,
+              unit: item.unit,
+              quantity: item.quantity,
+              unitPrice: item.unit_price,
+              discount: item.discount,
+              vatRate: parseInt(item.vat_rate) as VATRate,
+              margin: item.margin,
+              totalHT: item.total_ht,
+              totalTTC: item.total_ttc,
+            })) || [],
+          };
+          
+          setQuote(adaptedQuote);
+        } catch (err) {
+          console.error("Erreur lors du chargement du devis:", err);
+          setError("Erreur lors du chargement du devis");
+        } finally {
+          setLoading(false);
+        }
+      } else {
         setLoading(false);
       }
-    } else {
-      setLoading(false);
-    }
+    };
+
+    loadQuoteData();
   }, [id, isNewQuote]);
+
+  // Sauvegarde automatique du travail en cours dans sessionStorage
+  useEffect(() => {
+    if (!loading && quote && (quote.clientId || quote.items?.length)) {
+      const workInProgressKey = isNewQuote ? 'newQuoteWorkInProgress' : `quoteWorkInProgress_${id}`;
+      sessionStorage.setItem(workInProgressKey, JSON.stringify(quote));
+    }
+  }, [quote, loading, isNewQuote, id]);
+
+  // Restaurer l'onglet actif au retour de l'aperçu
+  useEffect(() => {
+    const savedActiveTab = sessionStorage.getItem('quoteEditorActiveTab');
+    if (savedActiveTab) {
+      setActiveTab(savedActiveTab as any);
+      sessionStorage.removeItem('quoteEditorActiveTab');
+    }
+  }, []);
 
   // Mark form as dirty when changes are made
   useEffect(() => {
@@ -171,8 +245,29 @@ export default function QuoteEditor() {
     }
   }, [quote.issueDate, quote.validityPeriod]);
 
-  // Clients and projects data
-  const clients = initialTiers;
+  // Clients data state
+  const [clients, setClients] = useState<any[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  
+  // Charger les clients depuis l'API
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        setLoadingClients(true);
+        const clientsData = await tiersApi.getTiers();
+        setClients(clientsData);
+      } catch (err) {
+        console.error("Erreur lors du chargement des clients:", err);
+        toast.error("Erreur lors du chargement des clients");
+      } finally {
+        setLoadingClients(false);
+      }
+    };
+
+    loadClients();
+  }, []);
+
+  // Projects data (TODO: implémenter l'API des projets)
   const projects = [
     { id: '1', name: 'Villa Moderne', address: '123 Rue de la Paix, Casablanca', clientId: '1' },
     { id: '2', name: 'Rénovation appartement', address: '45 Avenue Hassan II, Rabat', clientId: '2' },
@@ -187,8 +282,8 @@ export default function QuoteEditor() {
       setQuote(prev => ({
         ...prev,
         clientId,
-        clientName: selectedClient.name,
-        clientAddress: selectedClient.address,
+        clientName: selectedClient.nom || selectedClient.name,
+        clientAddress: selectedClient.adresse || selectedClient.address,
       }));
       setErrors(prev => ({ ...prev, clientId: "" }));
       
@@ -231,8 +326,8 @@ export default function QuoteEditor() {
           setQuote(prev => ({
             ...prev,
             clientId: projectClient.id,
-            clientName: projectClient.name,
-            clientAddress: projectClient.address,
+            clientName: projectClient.nom || projectClient.name,
+            clientAddress: projectClient.adresse || projectClient.address,
           }));
           setErrors(prev => ({ ...prev, clientId: "" }));
         }
@@ -251,38 +346,153 @@ export default function QuoteEditor() {
   };
 
   // Add a new item to the quote
-  const handleAddItem = (item: QuoteItem) => {
+  const handleAddItem = async (item: QuoteItem) => {
     // Set position to the end of the list
     item.position = (quote.items?.length || 0) + 1;
     
-    const updatedItems = [...(quote.items || []), item];
-    
-    setQuote(prev => ({
-      ...prev,
-      items: updatedItems,
-    }));
+    // Si c'est un devis existant, créer l'élément via l'API
+    if (!isNewQuote && quote.id) {
+      try {
+        const itemData: CreateQuoteItemData = {
+          quote: quote.id,
+          type: item.type,
+          parent: item.parentId,
+          position: item.position,
+          reference: item.reference,
+          designation: item.designation,
+          description: item.description,
+          unit: item.unit || 'unité',
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          discount: item.discount,
+          vat_rate: item.vatRate.toString(),
+          margin: item.margin,
+          work_id: item.workId,
+        };
+        
+        const createdItem = await quotesApi.createQuoteItem(itemData);
+        
+        // Adapter l'élément créé au format local
+        const adaptedItem: QuoteItem = {
+          id: createdItem.id,
+          type: createdItem.type as any,
+          parentId: createdItem.parent,
+          position: createdItem.position,
+          reference: createdItem.reference,
+          designation: createdItem.designation,
+          description: createdItem.description,
+          unit: createdItem.unit,
+          quantity: createdItem.quantity,
+          unitPrice: createdItem.unit_price,
+          discount: createdItem.discount,
+          vatRate: parseInt(createdItem.vat_rate) as any,
+          margin: createdItem.margin,
+          totalHT: createdItem.total_ht,
+          totalTTC: createdItem.total_ttc,
+          workId: createdItem.work_id,
+        };
+        
+        const updatedItems = [...(quote.items || []), adaptedItem];
+        setQuote(prev => ({ ...prev, items: updatedItems }));
+        
+        toast.success("Élément ajouté avec succès");
+      } catch (error) {
+        console.error("Erreur lors de l'ajout de l'élément:", error);
+        toast.error("Erreur lors de l'ajout de l'élément");
+        return;
+      }
+    } else {
+      // Pour un nouveau devis, juste ajouter localement
+      const updatedItems = [...(quote.items || []), item];
+      setQuote(prev => ({ ...prev, items: updatedItems }));
+    }
     
     setErrors(prev => ({ ...prev, items: "" }));
   };
 
   // Update an existing item
-  const handleUpdateItem = (updatedItem: QuoteItem) => {
+  const handleUpdateItem = async (updatedItem: QuoteItem) => {
     if (!quote.items) return;
     
-    const updatedItems = quote.items.map(item => 
-      item.id === updatedItem.id ? updatedItem : item
-    );
-    
-    setQuote(prev => ({
-      ...prev,
-      items: updatedItems,
-    }));
+    // Si c'est un devis existant, mettre à jour via l'API
+    if (!isNewQuote && quote.id && updatedItem.id) {
+      try {
+        const itemData: Partial<CreateQuoteItemData> = {
+          type: updatedItem.type,
+          parent: updatedItem.parentId,
+          position: updatedItem.position,
+          reference: updatedItem.reference,
+          designation: updatedItem.designation,
+          description: updatedItem.description,
+          unit: updatedItem.unit || 'unité',
+          quantity: updatedItem.quantity,
+          unit_price: updatedItem.unitPrice,
+          discount: updatedItem.discount,
+          vat_rate: updatedItem.vatRate.toString(),
+          margin: updatedItem.margin,
+          work_id: updatedItem.workId,
+        };
+        
+        const updated = await quotesApi.updateQuoteItem(updatedItem.id, itemData);
+        
+        // Adapter l'élément mis à jour au format local
+        const adaptedItem: QuoteItem = {
+          id: updated.id,
+          type: updated.type as any,
+          parentId: updated.parent,
+          position: updated.position,
+          reference: updated.reference,
+          designation: updated.designation,
+          description: updated.description,
+          unit: updated.unit,
+          quantity: updated.quantity,
+          unitPrice: updated.unit_price,
+          discount: updated.discount,
+          vatRate: parseInt(updated.vat_rate) as any,
+          margin: updated.margin,
+          totalHT: updated.total_ht,
+          totalTTC: updated.total_ttc,
+          workId: updated.work_id,
+        };
+        
+        const updatedItems = quote.items.map(item => 
+          item.id === adaptedItem.id ? adaptedItem : item
+        );
+        
+        setQuote(prev => ({ ...prev, items: updatedItems }));
+        toast.success("Élément mis à jour avec succès");
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour de l'élément:", error);
+        toast.error("Erreur lors de la mise à jour de l'élément");
+        return;
+      }
+    } else {
+      // Pour un nouveau devis, juste mettre à jour localement
+      const updatedItems = quote.items.map(item => 
+        item.id === updatedItem.id ? updatedItem : item
+      );
+      
+      setQuote(prev => ({ ...prev, items: updatedItems }));
+    }
   };
 
   // Remove an item from the quote
-  const handleRemoveItem = (itemId: string) => {
+  const handleRemoveItem = async (itemId: string) => {
     if (!quote.items) return;
     
+    // Si c'est un devis existant, supprimer via l'API
+    if (!isNewQuote && quote.id) {
+      try {
+        await quotesApi.deleteQuoteItem(itemId);
+        toast.success("Élément supprimé avec succès");
+      } catch (error) {
+        console.error("Erreur lors de la suppression de l'élément:", error);
+        toast.error("Erreur lors de la suppression de l'élément");
+        return;
+      }
+    }
+    
+    // Mettre à jour l'état local
     const updatedItems = quote.items.filter(item => item.id !== itemId);
     
     // Update positions
@@ -291,10 +501,7 @@ export default function QuoteEditor() {
       position: index + 1,
     }));
     
-    setQuote(prev => ({
-      ...prev,
-      items: reorderedItems,
-    }));
+    setQuote(prev => ({ ...prev, items: reorderedItems }));
   };
 
   // Handle drag end event for reordering items
@@ -359,17 +566,74 @@ export default function QuoteEditor() {
     if (validateForm()) {
       setSaving(true);
       try {
-        // In a real app, this would be an API call
-        console.log("Saving quote:", quote);
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Navigate back to quote list
-        navigate("/devis");
+        if (isNewQuote) {
+          // Créer un nouveau devis
+          const createData: CreateQuoteData = {
+            tier: quote.clientId!,
+            project_name: quote.projectName || '',
+            project_address: quote.projectAddress,
+            validity_period: quote.validityPeriod,
+            notes: quote.notes,
+            terms_and_conditions: quote.termsAndConditions,
+          };
+          
+          const newQuote = await quotesApi.createQuote(createData);
+          
+          // Créer les éléments du devis
+          if (quote.items && quote.items.length > 0) {
+            for (const item of quote.items) {
+              const itemData: CreateQuoteItemData = {
+                quote: newQuote.id,
+                type: item.type,
+                parent: item.parentId,
+                position: item.position,
+                reference: item.reference,
+                designation: item.designation,
+                description: item.description,
+                unit: item.unit || 'unité',
+                quantity: item.quantity,
+                unit_price: item.unitPrice,
+                discount: item.discount,
+                vat_rate: item.vatRate.toString(),
+                margin: item.margin,
+                work_id: item.workId,
+              };
+              
+              await quotesApi.createQuoteItem(itemData);
+            }
+          }
+          
+          // Nettoyer les données temporaires
+          sessionStorage.removeItem('newQuoteWorkInProgress');
+          sessionStorage.removeItem('previewQuote');
+          
+          toast.success("Devis créé avec succès");
+          navigate(`/devis/${newQuote.id}`);
+        } else {
+          // Mettre à jour un devis existant
+          const updateData: Partial<CreateQuoteData> = {
+            tier: quote.clientId!,
+            project_name: quote.projectName || '',
+            project_address: quote.projectAddress,
+            validity_period: quote.validityPeriod,
+            notes: quote.notes,
+            terms_and_conditions: quote.termsAndConditions,
+          };
+          
+          await quotesApi.updateQuote(quote.id!, updateData);
+          
+          // Nettoyer les données temporaires
+          sessionStorage.removeItem(`quoteWorkInProgress_${quote.id}`);
+          sessionStorage.removeItem('previewQuote');
+          
+          // TODO: Gérer la mise à jour des éléments
+          
+          toast.success("Devis mis à jour avec succès");
+          navigate(`/devis/${quote.id}`);
+        }
       } catch (err) {
         console.error("Error saving quote:", err);
-        setError("Erreur lors de l'enregistrement du devis");
+        toast.error("Erreur lors de l'enregistrement du devis");
       } finally {
         setSaving(false);
       }
@@ -381,34 +645,75 @@ export default function QuoteEditor() {
     if (validateForm()) {
       setSaving(true);
       try {
-        // In a real app, this would be an API call
-        console.log("Validating and sending quote:", quote);
+        let quoteId = quote.id;
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mettre à jour le statut du devis à "sent"
-        const updatedQuote = {
-          ...quote,
-          status: "sent" as QuoteStatus
-        };
-        
-        // Mettre à jour le statut de l'opportunité liée
-        if (quote.id && quote.opportunityId) {
-          const result = sendQuote(quote.id);
-          if (result.success) {
-            console.log(`Opportunité ${result.opportunityId} mise à jour avec succès`);
+        // D'abord sauvegarder si c'est un nouveau devis
+        if (isNewQuote) {
+          const createData: CreateQuoteData = {
+            tier: quote.clientId!,
+            project_name: quote.projectName || '',
+            project_address: quote.projectAddress,
+            validity_period: quote.validityPeriod,
+            notes: quote.notes,
+            terms_and_conditions: quote.termsAndConditions,
+          };
+          
+          const newQuote = await quotesApi.createQuote(createData);
+          quoteId = newQuote.id;
+          
+          // Créer les éléments du devis
+          if (quote.items && quote.items.length > 0) {
+            for (const item of quote.items) {
+              const itemData: CreateQuoteItemData = {
+                quote: newQuote.id,
+                type: item.type,
+                parent: item.parentId,
+                position: item.position,
+                reference: item.reference,
+                designation: item.designation,
+                description: item.description,
+                unit: item.unit || 'unité',
+                quantity: item.quantity,
+                unit_price: item.unitPrice,
+                discount: item.discount,
+                vat_rate: item.vatRate.toString(),
+                margin: item.margin,
+                work_id: item.workId,
+              };
+              
+              await quotesApi.createQuoteItem(itemData);
+            }
           }
+        } else if (quote.id) {
+          // Mettre à jour le devis existant d'abord
+          const updateData: Partial<CreateQuoteData> = {
+            tier: quote.clientId!,
+            project_name: quote.projectName || '',
+            project_address: quote.projectAddress,
+            validity_period: quote.validityPeriod,
+            notes: quote.notes,
+            terms_and_conditions: quote.termsAndConditions,
+          };
+          
+          await quotesApi.updateQuote(quote.id, updateData);
+          quoteId = quote.id;
         }
         
-        // Afficher une notification de succès
-        alert("Devis envoyé avec succès. L'opportunité liée a été mise à jour.");
-        
-        // Navigate back to quote list
-        navigate("/devis");
+        // Ensuite marquer comme envoyé
+        if (quoteId) {
+          await quotesApi.markAsSent(quoteId, "Devis envoyé depuis l'éditeur");
+          
+          // Nettoyer les données temporaires
+          const workInProgressKey = isNewQuote ? 'newQuoteWorkInProgress' : `quoteWorkInProgress_${quoteId}`;
+          sessionStorage.removeItem(workInProgressKey);
+          sessionStorage.removeItem('previewQuote');
+          
+          toast.success("Devis sauvegardé et envoyé avec succès !");
+          navigate(`/devis/${quoteId}`);
+        }
       } catch (err) {
-        console.error("Error validating quote:", err);
-        setError("Erreur lors de la validation du devis");
+        console.error("Error validating and sending quote:", err);
+        toast.error("Erreur lors de la validation et de l'envoi du devis");
       } finally {
         setSaving(false);
       }
@@ -417,8 +722,20 @@ export default function QuoteEditor() {
 
   // Open preview in a new tab/window
   const handleOpenPreview = () => {
-    // Store the current quote data in sessionStorage
-    sessionStorage.setItem('previewQuote', JSON.stringify(quote));
+    // Calculer les totaux avant l'aperçu si nécessaire
+    const previewQuote = {
+      ...quote,
+      // S'assurer que nous avons des totaux calculés
+      totalHT: quote.totalHT || 0,
+      totalVAT: quote.totalVAT || 0,
+      totalTTC: quote.totalTTC || 0,
+    };
+    
+    // Store the current quote data in sessionStorage for preview
+    sessionStorage.setItem('previewQuote', JSON.stringify(previewQuote));
+    
+    // Store current tab for restoration
+    sessionStorage.setItem('quoteEditorActiveTab', activeTab);
     
     // Open the preview page
     navigate(`/devis/preview/${quote.id || 'preview'}`);
@@ -472,6 +789,18 @@ export default function QuoteEditor() {
   // Toggle tax included/excluded view
   const handleToggleTaxIncluded = () => {
     setShowTaxIncluded(!showTaxIncluded);
+  };
+
+  // Nettoyer manuellement les données de travail en cours
+  const handleClearWorkInProgress = () => {
+    const workInProgressKey = isNewQuote ? 'newQuoteWorkInProgress' : `quoteWorkInProgress_${id}`;
+    sessionStorage.removeItem(workInProgressKey);
+    sessionStorage.removeItem('previewQuote');
+    sessionStorage.removeItem('quoteEditorActiveTab');
+    toast.success("Données de travail effacées");
+    
+    // Recharger la page pour revenir à l'état initial
+    window.location.reload();
   };
 
   if (loading) {
@@ -601,6 +930,11 @@ export default function QuoteEditor() {
                     Brouillon
                   </Badge>
                 )}
+                {workInProgressRestored && (
+                  <Badge className="gap-1 bg-blue-500/20 text-blue-100 border-blue-300/30">
+                    Travail restauré
+                  </Badge>
+                )}
               </div>
               <p className="text-benaya-100 mt-1">
                 {isNewQuote 
@@ -612,6 +946,19 @@ export default function QuoteEditor() {
           </div>
           
           <div className="flex items-center gap-2">
+            {workInProgressRestored && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="bg-red-500/10 hover:bg-red-500/20 border-red-300/30 text-red-100"
+                onClick={handleClearWorkInProgress}
+                title="Effacer le travail restauré et recommencer"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Effacer
+              </Button>
+            )}
+            
             <Button 
               variant="outline" 
               className="bg-white/10 hover:bg-white/20 border-white/20 text-white"

@@ -5,8 +5,11 @@ import Auth from "@/pages/Auth";
 import Index from "@/pages/Dashboard";
 import Agenda from "@/pages/Agenda";
 import Chantiers from "@/pages/Chantiers";
-import Devis from "@/pages/Devis";
+import DevisNew from "@/pages/DevisNew";
 import QuoteEditor from "@/pages/QuoteEditor";
+import QuoteEditorNew from "@/pages/QuoteEditorNew";
+import QuoteEditorTest from "@/pages/QuoteEditorTest";
+import QuoteDetail from "@/pages/QuoteDetail";
 import QuotePreview from "@/pages/QuotePreview";
 import Factures from "@/pages/Factures";
 import InvoiceDetail from "@/pages/InvoiceDetail";
@@ -89,8 +92,13 @@ export default function App() {
               <Route path="opportunities" element={<Opportunities />} />
               <Route path="opportunities/:id" element={<OpportunityDetail />} />
               <Route path="chantiers" element={<Chantiers />} />
-              <Route path="devis" element={<Devis />} />
+              <Route path="devis" element={<DevisNew />} />
+              <Route path="devis/nouveau" element={<QuoteEditor />} />
               <Route path="devis/edit/:id" element={<QuoteEditor />} />
+              <Route path="devis/edit-new/:id" element={<QuoteEditorNew />} />
+              <Route path="devis/new-editor" element={<QuoteEditorNew />} />
+              <Route path="devis/test-editor" element={<QuoteEditorTest />} />
+              <Route path="devis/:id" element={<QuoteDetail />} />
               <Route path="devis/preview/:id" element={<QuotePreview />} />
               <Route path="factures" element={<Factures />} />
               <Route path="factures/:id" element={<InvoiceDetail />} />

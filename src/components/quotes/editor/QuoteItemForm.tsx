@@ -22,7 +22,8 @@ import {
 import { QuoteItem } from "@/lib/types/quote";
 import { formatCurrency } from "@/lib/utils";
 import { Work, Material, Labor } from "@/lib/types/workLibrary";
-import { mockMaterials, mockLabor, mockWorks } from "@/lib/mock/workLibrary";
+import { libraryApi } from "@/lib/api/library";
+import { toast } from "sonner";
 
 interface QuoteItemFormProps {
   open: boolean;
@@ -58,11 +59,28 @@ export function QuoteItemForm({
   
   // Charger les données de la bibliothèque
   const [libraryItems, setLibraryItems] = useState<(Work | Material | Labor)[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  
+  // Charger la bibliothèque depuis l'API
+  const loadLibraryItems = async () => {
+    try {
+      setLibraryLoading(true);
+      const allItems = await libraryApi.getAllLibraryItems();
+      setLibraryItems(allItems);
+    } catch (error) {
+      console.error("Erreur lors du chargement de la bibliothèque:", error);
+      toast.error("Erreur lors du chargement de la bibliothèque");
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
   
   useEffect(() => {
-    // Combiner tous les éléments de la bibliothèque
-    setLibraryItems([...mockMaterials, ...mockLabor, ...mockWorks]);
-  }, []);
+    // Charger la bibliothèque seulement quand la modale s'ouvre et qu'on affiche la bibliothèque
+    if (open && showLibrary && libraryItems.length === 0) {
+      loadLibraryItems();
+    }
+  }, [open, showLibrary]);
   
   // Réinitialiser le formulaire quand la modale s'ouvre
   useEffect(() => {
@@ -262,9 +280,17 @@ export function QuoteItemForm({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => setShowLibrary(!showLibrary)}
+                  onClick={() => {
+                    const newShowLibrary = !showLibrary;
+                    setShowLibrary(newShowLibrary);
+                    // Charger la bibliothèque si on l'affiche et qu'elle n'est pas encore chargée
+                    if (newShowLibrary && libraryItems.length === 0) {
+                      loadLibraryItems();
+                    }
+                  }}
+                  disabled={libraryLoading}
                 >
-                  {showLibrary ? "Masquer" : "Afficher"} la bibliothèque
+                  {libraryLoading ? "Chargement..." : showLibrary ? "Masquer" : "Afficher"} la bibliothèque
                 </Button>
               </div>
               
@@ -281,8 +307,15 @@ export function QuoteItemForm({
                   </div>
                   
                   <div className="max-h-60 overflow-y-auto space-y-2">
-                    {getFilteredLibraryItems().length === 0 ? (
-                      <p className="text-center text-neutral-500 py-4">Aucun résultat trouvé</p>
+                    {libraryLoading ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-benaya-600 mx-auto mb-2"></div>
+                        <p className="text-neutral-500 text-sm">Chargement de la bibliothèque...</p>
+                      </div>
+                    ) : getFilteredLibraryItems().length === 0 ? (
+                      <p className="text-center text-neutral-500 py-4">
+                        {libraryItems.length === 0 ? "Aucun élément dans la bibliothèque" : "Aucun résultat trouvé"}
+                      </p>
                     ) : (
                       getFilteredLibraryItems().map((item) => (
                         <div

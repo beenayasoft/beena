@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Quote } from "@/lib/types/quote";
-import { getQuoteById } from "@/lib/mock/quotes";
+import { quotesApi, QuoteDetail } from "@/lib/api/quotes";
 import { QuotePreview } from "@/components/quotes/QuotePreview";
+import { toast } from "sonner";
 
 export default function QuotePreviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,38 +22,81 @@ export default function QuotePreviewPage() {
 
   // Load quote data
   useEffect(() => {
-    // Essayer d'abord de récupérer depuis sessionStorage
-    const storedQuote = sessionStorage.getItem('previewQuote');
-    
-    if (storedQuote) {
-      try {
-        setQuote(JSON.parse(storedQuote));
+    const loadQuoteData = async () => {
+      if (!id || id === 'preview') {
+        // Essayer de récupérer depuis sessionStorage pour les aperçus temporaires
+        const storedQuote = sessionStorage.getItem('previewQuote');
+        
+        if (storedQuote) {
+          try {
+            setQuote(JSON.parse(storedQuote));
+            setLoading(false);
+            return;
+          } catch (err) {
+            console.error("Erreur lors du parsing de l'aperçu:", err);
+            setError("Erreur lors du chargement des données d'aperçu");
+          }
+        } else {
+          setError("Aucune donnée d'aperçu disponible");
+        }
         setLoading(false);
         return;
-      } catch (err) {
-        console.error("Erreur lors du parsing de l'aperçu:", err);
-        // Continue to try loading from API if parsing fails
       }
-    }
-    
-    // Si pas de données dans sessionStorage ou erreur de parsing, essayer de charger depuis l'API
-    if (id && id !== 'preview') {
+
+      // Charger depuis l'API pour les devis existants
       try {
-        const quoteData = getQuoteById(id);
-        if (quoteData) {
-          setQuote(quoteData);
-        } else {
-          setError("Devis non trouvé");
-        }
+        setLoading(true);
+        const quoteData = await quotesApi.getQuote(id);
+        
+        // Adapter les données de l'API au format Quote local
+        const adaptedQuote: Quote = {
+          id: quoteData.id,
+          number: quoteData.number,
+          clientId: quoteData.tier,
+          clientName: quoteData.client_name,
+          clientAddress: quoteData.client_address,
+          projectId: "", // TODO: ajouter project_id dans l'API
+          projectName: quoteData.project_name,
+          projectAddress: quoteData.project_address,
+          issueDate: quoteData.issue_date,
+          expiryDate: quoteData.expiry_date,
+          validityPeriod: quoteData.validity_period,
+          notes: quoteData.notes,
+          termsAndConditions: quoteData.terms_and_conditions,
+          totalHT: quoteData.total_ht,
+          totalVAT: quoteData.total_vat,
+          totalTTC: quoteData.total_ttc,
+          status: quoteData.status as any,
+          items: quoteData.items?.map(item => ({
+            id: item.id,
+            type: item.type as any,
+            parentId: item.parent,
+            position: item.position,
+            reference: item.reference,
+            designation: item.designation,
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            discount: item.discount,
+            vatRate: parseInt(item.vat_rate) as any,
+            margin: item.margin,
+            totalHT: item.total_ht,
+            totalTTC: item.total_ttc,
+            workId: item.work_id,
+          })) || [],
+        };
+        
+        setQuote(adaptedQuote);
       } catch (err) {
+        console.error("Erreur lors du chargement du devis:", err);
         setError("Erreur lors du chargement du devis");
-        console.error(err);
+      } finally {
+        setLoading(false);
       }
-    } else if (!storedQuote) {
-      setError("Aucune donnée d'aperçu disponible");
-    }
-    
-    setLoading(false);
+    };
+
+    loadQuoteData();
   }, [id]);
 
   // Print the quote
@@ -60,14 +104,34 @@ export default function QuotePreviewPage() {
     window.print();
   };
 
-  // Download as PDF (placeholder)
-  const handleDownload = () => {
-    alert("Fonctionnalité de téléchargement PDF à implémenter");
+  // Download as PDF using API
+  const handleDownload = async () => {
+    if (!id || id === 'preview') {
+      toast.error("Impossible de télécharger un aperçu temporaire");
+      return;
+    }
+
+    try {
+      toast.info("Génération du PDF en cours...");
+      const exportResult = await quotesApi.exportQuote(id, 'pdf', {
+        include_details: true,
+        language: 'fr'
+      });
+      
+      if (exportResult.download_url) {
+        // Ouvrir dans un nouvel onglet ou télécharger
+        window.open(exportResult.download_url, '_blank');
+        toast.success("PDF généré avec succès");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'export PDF:", error);
+      toast.error("Erreur lors de la génération du PDF");
+    }
   };
 
-  // Send by email (placeholder)
+  // Send by email (TODO: implémenter l'envoi par email)
   const handleSendEmail = () => {
-    alert("Fonctionnalité d'envoi par email à implémenter");
+    toast.info("Fonctionnalité d'envoi par email à implémenter");
   };
 
   if (loading) {
