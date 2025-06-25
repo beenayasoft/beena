@@ -22,7 +22,7 @@ import { Building2, User } from "lucide-react";
 interface TierCreationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (createdTierId?: string) => void;
   entityType: EntityType;
 }
 
@@ -81,7 +81,7 @@ export function TierCreationDialog({
       
       // Fermer le dialogue et notifier le succès
       onOpenChange(false);
-      onSuccess?.();
+      onSuccess?.(newTier.id);
     } catch (err) {
       console.error(`Error creating entreprise:`, err);
       handleApiError(err);
@@ -113,7 +113,7 @@ export function TierCreationDialog({
       
       // Fermer le dialogue et notifier le succès
       onOpenChange(false);
-      onSuccess?.();
+      onSuccess?.(newTier.id);
     } catch (err) {
       console.error(`Error creating particulier:`, err);
       handleApiError(err);

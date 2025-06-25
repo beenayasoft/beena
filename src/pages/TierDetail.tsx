@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, Mail, MapPin, Building, User, Tag, Activity, Users, Home, Plus, BarChart3 } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Building, User, Tag, Activity, Users, Home, Plus, BarChart3, Eye, FileText, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,9 +15,7 @@ import { Opportunity } from "@/lib/types/opportunity";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { toast } from "@/hooks/use-toast";
-import { getOpportunities } from "@/lib/mock/opportunities";
-import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
-import { initialTiers } from "@/lib/mock/tiers";
+import { opportunityService } from "@/lib/services/opportunityService";
 
 // Types pour les données détaillées du backend
 interface TierDetailData {
@@ -93,6 +91,17 @@ export default function TierDetail() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   
+  // 🚀 Idée de génie #2 : États pour chargement progressif et métriques
+  const [opportunitiesLoading, setOpportunitiesLoading] = useState(false);
+  const [opportunitiesError, setOpportunitiesError] = useState<string | null>(null);
+  const [opportunityMetrics, setOpportunityMetrics] = useState<{
+    total: number;
+    byStage: Record<string, number>;
+    totalAmount: number;
+    avgAmount: number;
+  } | null>(null);
+  const [dataSource, setDataSource] = useState<'api' | 'mock' | null>(null);
+
   // États pour les modales d'édition spécialisées
   const [editEntrepriseDialogOpen, setEditEntrepriseDialogOpen] = useState(false);
   const [editParticulierDialogOpen, setEditParticulierDialogOpen] = useState(false);
@@ -168,9 +177,10 @@ export default function TierDetail() {
         console.log("Données tier après restructuration:", data);
         setTierData(data);
         
-        // Charger les opportunités liées à ce tiers (si besoin)
-        const tierOpportunities = getOpportunities({ tierId: id });
-        setOpportunities(tierOpportunities);
+        // 🚀 Idée de génie #2 : Chargement progressif intelligent des opportunités
+        if (id) {
+          loadOpportunitiesProgressively(id);
+        }
       } catch (err) {
         console.error("Erreur lors du chargement du tier:", err);
         setError(err instanceof Error ? err.message : "Erreur lors du chargement");
@@ -181,6 +191,56 @@ export default function TierDetail() {
 
     fetchTierData();
   }, [id]);
+
+  // 🚀 Idée de génie #2 : Fonction de chargement progressif des opportunités
+  const loadOpportunitiesProgressively = async (tierId: string) => {
+    console.log('🔍 [TierDetail] loadOpportunitiesProgressively - tierId reçu:', tierId);
+    
+    setOpportunitiesLoading(true);
+    setOpportunitiesError(null);
+    
+    try {
+      console.log('🔄 [TierDetail] Appel de opportunityService.getOpportunitiesByTier avec tierId:', tierId);
+      
+      const result = await opportunityService.getOpportunitiesByTier(tierId, {
+        progressive: true,
+        includeMetrics: true,
+      });
+      
+      console.log('✅ [TierDetail] Résultat reçu:', {
+        count: result.opportunities.length,
+        source: result.source,
+        tierIdFilter: tierId,
+        opportunities: result.opportunities.map(opp => ({
+          id: opp.id,
+          name: opp.name,
+          tierId: opp.tierId,
+          tierName: opp.tierName
+        }))
+      });
+      
+      // Vérifier que toutes les opportunités correspondent bien au tier
+      const filteredOpportunities = result.opportunities.filter(opp => opp.tierId === tierId);
+      console.log('🔍 [TierDetail] Opportunités après filtrage local:', {
+        avant: result.opportunities.length,
+        après: filteredOpportunities.length,
+        tierIdRecherché: tierId
+      });
+
+      // Utiliser le filtrage local au cas où l'API/mock ne filtre pas correctement
+      setOpportunities(filteredOpportunities);
+      setOpportunityMetrics(result.metrics || null);
+      setDataSource(result.source);
+      
+    } catch (error) {
+      console.error('❌ [TierDetail] Erreur lors du chargement des opportunités:', error);
+      setOpportunitiesError(error instanceof Error ? error.message : 'Erreur de chargement');
+      setOpportunities([]);
+      setOpportunityMetrics(null);
+    } finally {
+      setOpportunitiesLoading(false);
+    }
+  };
 
   // Gestionnaire pour l'édition selon le type
   const handleEdit = () => {
@@ -217,21 +277,39 @@ export default function TierDetail() {
   };
 
   // Gérer la soumission du formulaire d'opportunité
-  const handleFormSubmit = (formData: Partial<Opportunity>) => {
-    // Dans une application réelle, vous feriez un appel API ici
-    console.log("Nouvelle opportunité:", formData);
-    
-    // Afficher une notification
-    toast({
-      title: "Opportunité créée",
-      description: "L'opportunité a été créée avec succès",
-    });
-    
-    // Fermer le formulaire
-    setFormDialogOpen(false);
-    
-    // Rediriger vers la page des opportunités
-    navigate("/opportunities");
+  const handleFormSubmit = async (formData: Partial<Opportunity>) => {
+    try {
+      console.log("🚀 Phase 3 : Création d'opportunité via service intelligent:", formData);
+      
+      // Créer l'opportunité via le service intelligent
+      const createdOpportunity = await opportunityService.createOpportunity(formData);
+      
+      console.log("✅ Opportunité créée avec succès:", createdOpportunity);
+      
+      // Afficher une notification de succès
+      toast({
+        title: "Opportunité créée",
+        description: `L'opportunité "${createdOpportunity.name}" a été créée avec succès`,
+      });
+      
+      // Fermer le formulaire
+      setFormDialogOpen(false);
+      
+      // 🚀 Phase 3 : Navigation automatique vers la fiche détail de l'opportunité créée
+      navigate(`/opportunities/${createdOpportunity.id}`);
+      
+    } catch (error) {
+      console.error("❌ Erreur lors de la création de l'opportunité:", error);
+      
+      // Afficher une notification d'erreur
+      toast({
+        title: "Erreur de création",
+        description: error instanceof Error ? error.message : "Une erreur est survenue lors de la création",
+        variant: "destructive",
+      });
+      
+      // Ne pas fermer le formulaire pour permettre à l'utilisateur de corriger
+    }
   };
 
   // Si en cours de chargement, afficher un spinner
@@ -568,6 +646,196 @@ export default function TierDetail() {
                 </Card>
               </TabsContent>
             </Tabs>
+
+            {/* 🚀 SECTION : Opportunités du client (intégrée dans la grille) */}
+            <div className="mt-6">
+              <Card className="benaya-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Opportunités de {tierData.nom}
+                  </CardTitle>
+                  <p className="text-sm text-neutral-500 mt-1">
+                    Gérez les opportunités commerciales liées à ce client
+                  </p>
+                </CardHeader>
+                
+                <CardContent>
+                  {/* Métriques rapides */}
+                  {opportunityMetrics && opportunities.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{opportunityMetrics.total}</div>
+                        <div className="text-sm text-neutral-500">Opportunités</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                          {opportunityMetrics.totalAmount.toLocaleString('fr-FR')}€
+                        </div>
+                        <div className="text-sm text-neutral-500">Montant total</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {opportunityMetrics.avgAmount.toLocaleString('fr-FR')}€
+                        </div>
+                        <div className="text-sm text-neutral-500">Montant moyen</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {Math.round(
+                            Object.values(opportunityMetrics.byStage).reduce((acc: number, count: number) => acc + count, 0) > 0
+                              ? (opportunities.filter(opp => opp.stage === 'won').length / opportunityMetrics.total) * 100
+                              : 0
+                          )}%
+                        </div>
+                        <div className="text-sm text-neutral-500">Taux de succès</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* État de chargement */}
+                  {opportunitiesLoading && (
+                    <div className="flex items-center justify-center py-12 text-neutral-500">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
+                      <span>Chargement des opportunités...</span>
+                    </div>
+                  )}
+                  
+                  {/* Gestion d'erreurs */}
+                  {opportunitiesError && (
+                    <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4 rounded-lg mb-6">
+                      <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                        <AlertCircle className="h-5 w-5" />
+                        <span>⚠️ {opportunitiesError}</span>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => id && loadOpportunitiesProgressively(id)}
+                          className="ml-auto"
+                        >
+                          Réessayer
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tableau des opportunités */}
+                  {!opportunitiesLoading && !opportunitiesError && (
+                    <>
+                      {opportunities.length > 0 ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-neutral-50 dark:bg-neutral-800">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Nom de l'opportunité
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Statut
+                                  </th>
+                                  <th className="px-4 py-3 text-right text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Montant estimé
+                                  </th>
+                                  <th className="px-4 py-3 text-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Probabilité
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Date de clôture
+                                  </th>
+                                  <th className="px-4 py-3 text-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                                    Actions
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                                {opportunities.map((opportunity) => (
+                                  <tr key={opportunity.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                                    <td className="px-4 py-3">
+                                      <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                                        {opportunity.name}
+                                      </div>
+                                      {opportunity.description && (
+                                        <div className="text-sm text-neutral-500 truncate max-w-xs">
+                                          {opportunity.description}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <Badge 
+                                        variant={
+                                          opportunity.stage === 'won' ? 'default' : 
+                                          opportunity.stage === 'lost' ? 'destructive' : 
+                                          opportunity.stage === 'negotiation' ? 'secondary' :
+                                          'outline'
+                                        }
+                                        className="text-xs"
+                                      >
+                                        {opportunity.stage === 'new' ? 'Nouvelle' :
+                                         opportunity.stage === 'needs_analysis' ? 'Analyse' :
+                                         opportunity.stage === 'negotiation' ? 'Négociation' :
+                                         opportunity.stage === 'won' ? 'Gagnée' :
+                                         opportunity.stage === 'lost' ? 'Perdue' :
+                                         opportunity.stage}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <div className="font-medium">
+                                        {opportunity.estimatedAmount?.toLocaleString('fr-FR')}€
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <div className="font-medium">
+                                        {opportunity.probability}%
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {opportunity.expectedCloseDate && (
+                                        <div className="text-sm">
+                                          {new Date(opportunity.expectedCloseDate).toLocaleDateString('fr-FR')}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex items-center justify-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => navigate(`/opportunities/${opportunity.id}`)}
+                                          className="h-8 w-8 p-0"
+                                        >
+                                          <Eye className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => navigate(`/devis/edit/${opportunity.id}`)}
+                                          className="h-8 w-8 p-0"
+                                        >
+                                          <FileText className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-neutral-500">
+                          <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                          <h3 className="text-lg font-medium mb-2">Aucune opportunité</h3>
+                          <p className="text-sm mb-4">
+                            Ce client n'a pas encore d'opportunités enregistrées.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           {/* Panneau latéral - Résumé */}
@@ -617,7 +885,7 @@ export default function TierDetail() {
               </CardContent>
             </Card>
 
-            {/* Actions et résumé */}
+            {/* Actions rapides */}
             {tierData && (
               <Card className="benaya-card mt-6">
                 <CardHeader>
@@ -656,48 +924,6 @@ export default function TierDetail() {
                       <MapPin className="h-4 w-4" />
                       Voir sur la carte
                     </Button>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Opportunités */}
-            {tierData && (
-              <Card className="benaya-card mt-6">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Opportunités</CardTitle>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleCreateOpportunity}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nouvelle opportunité
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {opportunities.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4">
-                      {opportunities.map(opportunity => (
-                        <OpportunityCard
-                          key={opportunity.id}
-                          opportunity={opportunity}
-                          onView={() => navigate(`/opportunities/${opportunity.id}`)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-neutral-500">
-                      <BarChart3 className="w-12 h-12 mx-auto mb-4" />
-                      <p className="mb-4">Aucune opportunité pour ce tiers</p>
-                      <Button 
-                        onClick={handleCreateOpportunity}
-                        className="gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Créer une opportunité
-                      </Button>
-                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -744,6 +970,7 @@ export default function TierDetail() {
             onSubmit={handleFormSubmit}
             onCancel={() => setFormDialogOpen(false)}
             isEditing={false}
+            preselectedTierId={tierData.id}
           />
         </DialogContent>
       </Dialog>

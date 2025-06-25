@@ -328,9 +328,16 @@ export default function Tiers() {
       <TierCreateFlow
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onSuccess={() => {
-          // Recharger la liste des tiers après création
-          loadTiers();
+        onSuccess={(createdTierId) => {
+          // 🚀 Phase 2 : Navigation automatique vers la fiche détail du tier créé
+          if (createdTierId) {
+            console.log("🎯 Navigation automatique vers la fiche détail du tier:", createdTierId);
+            navigate(`/tiers/${createdTierId}`);
+          } else {
+            // Fallback : Recharger la liste si pas d'ID
+            console.warn("⚠️ Pas d'ID de tier reçu, rechargement de la liste");
+            loadTiers();
+          }
         }}
       />
 

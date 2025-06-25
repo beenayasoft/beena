@@ -107,7 +107,7 @@ export default function QuoteEditor() {
         setClients(response.results || []);
         
         // Charger le devis si en mode édition
-        if (!isNewQuote && id) {
+      if (!isNewQuote && id) {
           setLoading(true);
           const quoteDetail = await quotesApi.getQuote(id);
           
@@ -125,29 +125,29 @@ export default function QuoteEditor() {
           
           // Mapper les éléments vers EditorQuoteItem
           const mappedItems: EditorQuoteItem[] = quoteDetail.items?.map(item => ({
-            id: item.id,
-            designation: item.designation,
-            description: item.description,
-            quantity: item.quantity,
+              id: item.id,
+              designation: item.designation,
+              description: item.description,
+              quantity: item.quantity,
             unit: item.unit,
-            unitPrice: item.unit_price,
-            discount: item.discount,
+              unitPrice: item.unit_price,
+              discount: item.discount,
             vat_rate: item.vat_rate,
             type: item.type,
             reference: item.reference,
             position: item.position,
             parent: item.parent,
-            margin: item.margin,
+              margin: item.margin,
             work_id: item.work_id,
           })) || [];
           
           setItems(mappedItems);
         }
-      } catch (err) {
+        } catch (err) {
         console.error("Erreur lors du chargement:", err);
         setError("Erreur lors du chargement des données");
-      } finally {
-        setLoading(false);
+        } finally {
+          setLoading(false);
         setLoadingClients(false);
       }
     };
@@ -168,11 +168,11 @@ export default function QuoteEditor() {
       if (formattedExpiryDate !== quoteData.expiryDate) {
         console.log(`📅 Calcul automatique date d'expiration: ${quoteData.issueDate} + ${quoteData.validity_period} jours = ${formattedExpiryDate}`);
         setQuoteData(prev => ({
-          ...prev,
+        ...prev,
           expiryDate: formattedExpiryDate
-        }));
+          }));
+        }
       }
-    }
   }, [quoteData.issueDate, quoteData.validity_period]);
 
   // �� VALIDATION SIMPLE
@@ -228,7 +228,7 @@ export default function QuoteEditor() {
         console.log("✅ Résultat création:", result);
         toast.success("Devis créé avec succès");
         navigate("/devis");
-      } else {
+    } else {
         console.log("📝 === MISE À JOUR DEVIS EXISTANT ===");
         console.log(`📝 URL cible: /quotes/${id}/bulk_update/`);
         const result = await quotesApi.bulkUpdateQuote(id!, bulkData);
@@ -264,7 +264,7 @@ export default function QuoteEditor() {
 
   const handleUpdateItem = (updatedItem: EditorQuoteItem) => {
     setItems(prev => prev.map(item => 
-      item.id === updatedItem.id ? updatedItem : item
+        item.id === updatedItem.id ? updatedItem : item
     ));
     setEditingItem(null);
     setItemFormOpen(false);

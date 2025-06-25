@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, AlertCircle } from "lucide-react";
+import { Check, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,14 +15,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Opportunity, OpportunityStatus, OpportunitySource } from "@/lib/types/opportunity";
-import { initialTiers } from "@/lib/mock/tiers";
+import { Tier } from "@/components/tiers/types";
+import { tiersService } from "@/lib/services/tiersService";
 import { formatCurrency } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface OpportunityFormProps {
   opportunity?: Partial<Opportunity>;
   onSubmit: (values: Partial<Opportunity>) => void;
   onCancel: () => void;
   isEditing?: boolean;
+  preselectedTierId?: string;
 }
 
 export function OpportunityForm({
@@ -30,7 +33,10 @@ export function OpportunityForm({
   onSubmit,
   onCancel,
   isEditing = false,
+  preselectedTierId,
 }: OpportunityFormProps) {
+  const { toast } = useToast();
+  
   const [formData, setFormData] = useState<Partial<Opportunity>>(
     opportunity || {
       name: "",
@@ -48,6 +54,59 @@ export function OpportunityForm({
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [tiersLoading, setTiersLoading] = useState(true);
+  const [tiersError, setTiersError] = useState<string | null>(null);
+
+  // Charger les tiers depuis l'API
+  useEffect(() => {
+    const loadTiers = async () => {
+      try {
+        setTiersLoading(true);
+        setTiersError(null);
+        
+        // Utiliser la méthode spécialisée pour clients et prospects
+        const clientsProspects = await tiersService.getClientsAndProspects();
+        setTiers(clientsProspects);
+        
+        console.log(`✅ Chargé ${clientsProspects.length} clients/prospects pour le formulaire`);
+        
+        // 🚀 Phase 4 : Pré-sélectionner le tier si fourni
+        if (preselectedTierId && !opportunity?.tierId) {
+          const preselectedTier = clientsProspects.find(tier => tier.id === preselectedTierId);
+          if (preselectedTier) {
+            console.log(`🎯 Pré-sélection du tier:`, preselectedTier);
+            setFormData(prev => ({
+              ...prev,
+              tierId: preselectedTier.id,
+              tierName: preselectedTier.name,
+              tierType: preselectedTier.type,
+            }));
+            
+            toast({
+              title: "Client pré-sélectionné",
+              description: `Le client "${preselectedTier.name}" a été automatiquement sélectionné`,
+            });
+          } else {
+            console.warn(`⚠️ Tier ${preselectedTierId} non trouvé dans la liste des clients/prospects`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des tiers:', error);
+        setTiersError(error instanceof Error ? error.message : 'Erreur inconnue');
+        
+        toast({
+          title: "Erreur de chargement",
+          description: "Impossible de charger la liste des clients/prospects. Veuillez réessayer.",
+          variant: "destructive",
+        });
+      } finally {
+        setTiersLoading(false);
+      }
+    };
+
+    loadTiers();
+  }, [toast, preselectedTierId, opportunity?.tierId]);
 
   // Mettre à jour le formulaire si l'opportunité change
   useEffect(() => {
@@ -75,7 +134,7 @@ export function OpportunityForm({
 
   // Gérer le changement de client/prospect
   const handleTierChange = (tierId: string) => {
-    const selectedTier = initialTiers.find((tier) => tier.id === tierId);
+    const selectedTier = tiers.find((tier) => tier.id === tierId);
     if (selectedTier) {
       setFormData((prev) => ({
         ...prev,
@@ -173,20 +232,57 @@ export function OpportunityForm({
           <div className="space-y-2">
             <Label htmlFor="tierId" className={errors.tierId ? "text-red-500" : ""}>
               Client/Prospect <span className="text-red-500">*</span>
+              {/* 🚀 Phase 4 : Indicateur de pré-sélection */}
+              {preselectedTierId && formData.tierId === preselectedTierId && (
+                <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  ✓ Pré-sélectionné depuis la fiche client
+                </span>
+              )}
             </Label>
             <Select
               value={formData.tierId}
               onValueChange={handleTierChange}
+              disabled={tiersLoading}
             >
-              <SelectTrigger className={`benaya-input ${errors.tierId ? "border-red-500" : ""}`}>
-                <SelectValue placeholder="Sélectionner un client/prospect" />
+              <SelectTrigger className={`benaya-input ${errors.tierId ? "border-red-500" : ""} ${
+                preselectedTierId && formData.tierId === preselectedTierId 
+                  ? "border-green-500 bg-green-50 ring-2 ring-green-200" 
+                  : ""
+              }`}>
+                <SelectValue 
+                  placeholder={
+                    tiersLoading 
+                      ? "Chargement des clients..." 
+                      : tiersError 
+                        ? "Erreur de chargement" 
+                        : "Sélectionner un client/prospect"
+                  } 
+                />
+                {tiersLoading && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
               </SelectTrigger>
               <SelectContent>
-                {initialTiers.map((tier) => (
-                  <SelectItem key={tier.id} value={tier.id}>
-                    {tier.name}
+                {tiersError ? (
+                  <SelectItem value="error" disabled>
+                    ❌ {tiersError}
                   </SelectItem>
-                ))}
+                ) : tiers.length === 0 && !tiersLoading ? (
+                  <SelectItem value="empty" disabled>
+                    Aucun client/prospect trouvé
+                  </SelectItem>
+                ) : (
+                  tiers.map((tier) => (
+                    <SelectItem key={tier.id} value={tier.id}>
+                      <div className="flex items-center space-x-2">
+                        <span>{tier.name}</span>
+                        {tier.type.length > 0 && (
+                          <span className="text-xs text-neutral-500">
+                            ({tier.type.join(', ')})
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
             {errors.tierId && (

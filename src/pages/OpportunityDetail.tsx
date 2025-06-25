@@ -14,6 +14,7 @@ import {
   Clock,
   AlertCircle,
   Plus,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,7 @@ import {
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { OpportunityLossForm } from "@/components/opportunities/OpportunityLossForm";
 import { Opportunity, OpportunityStatus, LossReason } from "@/lib/types/opportunity";
-import { getOpportunityById, updateOpportunity, deleteOpportunity, createQuoteFromOpportunity } from "@/lib/mock/opportunities";
+import { opportunityService } from "@/lib/services/opportunityService";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
@@ -43,22 +44,42 @@ export default function OpportunityDetail() {
 
   // Charger les données de l'opportunité
   useEffect(() => {
-    if (id) {
+    const loadOpportunity = async () => {
+      if (!id) {
+        setError("ID d'opportunité manquant");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const opportunityData = getOpportunityById(id);
+        setLoading(true);
+        setError(null);
+        
+        console.log(`🔍 Chargement de l'opportunité ${id}...`);
+        const opportunityData = await opportunityService.getOpportunity(id);
+        
         if (opportunityData) {
           setOpportunity(opportunityData);
+          console.log(`✅ Opportunité ${id} chargée avec succès:`, opportunityData);
         } else {
           setError("Opportunité non trouvée");
         }
       } catch (err) {
-        setError("Erreur lors du chargement de l'opportunité");
-        console.error(err);
+        console.error(`❌ Erreur lors du chargement de l'opportunité ${id}:`, err);
+        setError(err instanceof Error ? err.message : "Erreur lors du chargement de l'opportunité");
+        
+        toast({
+          title: "Erreur de chargement",
+          description: "Impossible de charger les détails de l'opportunité. Veuillez réessayer.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
-    }
-  }, [id]);
+    };
+
+    loadOpportunity();
+  }, [id, toast]);
 
   // Formater une date
   const formatDate = (dateString?: string) => {
@@ -127,48 +148,85 @@ export default function OpportunityDetail() {
   };
 
   // Gérer la suppression de l'opportunité
-  const handleDelete = () => {
-    if (opportunity && confirm(`Êtes-vous sûr de vouloir supprimer l'opportunité "${opportunity.name}" ?`)) {
-      const success = deleteOpportunity(opportunity.id);
-      if (success) {
+  const handleDelete = async () => {
+    if (!opportunity) return;
+    
+    if (confirm(`Êtes-vous sûr de vouloir supprimer l'opportunité "${opportunity.name}" ?`)) {
+      try {
+        console.log(`🗑️ Suppression de l'opportunité ${opportunity.id}...`);
+        const success = await opportunityService.deleteOpportunity(opportunity.id);
+        
+        if (success) {
+          toast({
+            title: "Opportunité supprimée",
+            description: "L'opportunité a été supprimée avec succès",
+          });
+          navigate("/opportunities");
+        }
+      } catch (error) {
+        console.error(`❌ Erreur lors de la suppression de l'opportunité ${opportunity.id}:`, error);
         toast({
-          title: "Opportunité supprimée",
-          description: "L'opportunité a été supprimée avec succès",
+          title: "Erreur de suppression",
+          description: error instanceof Error ? error.message : "Impossible de supprimer l'opportunité",
+          variant: "destructive",
         });
-        navigate("/opportunities");
       }
     }
   };
 
   // Gérer la création d'un devis
-  const handleCreateQuote = () => {
+  const handleCreateQuote = async () => {
     if (!opportunity) return;
     
-    const result = createQuoteFromOpportunity(opportunity.id);
-    if (result.success) {
-      toast({
-        title: "Devis créé",
-        description: "Un nouveau devis a été créé à partir de cette opportunité",
+    try {
+      console.log(`📄 Création d'un devis à partir de l'opportunité ${opportunity.id}...`);
+      const result = await opportunityService.createQuote(opportunity.id, {
+        title: `Devis pour ${opportunity.name}`,
+        description: opportunity.description,
       });
-      navigate(`/devis/edit/${result.quoteId}`);
+      
+      if (result && result.quote_id) {
+        toast({
+          title: "Devis créé",
+          description: "Un nouveau devis a été créé à partir de cette opportunité",
+        });
+        console.log(`✅ Devis ${result.quote_id} créé avec succès`);
+        navigate(`/devis/edit/${result.quote_id}`);
+      } else {
+        throw new Error("Réponse invalide du serveur");
+      }
+    } catch (error) {
+      console.error(`❌ Erreur lors de la création du devis:`, error);
+      toast({
+        title: "Erreur de création",
+        description: error instanceof Error ? error.message : "Impossible de créer le devis",
+        variant: "destructive",
+      });
     }
   };
 
   // Marquer comme gagnée
-  const handleMarkAsWon = () => {
+  const handleMarkAsWon = async () => {
     if (!opportunity) return;
     
-    const updatedOpportunity = updateOpportunity(opportunity.id, {
-      stage: 'won',
-      probability: 100,
-      closedAt: new Date().toISOString(),
-    });
-    
-    if (updatedOpportunity) {
-      setOpportunity(updatedOpportunity);
+    try {
+      console.log(`🎉 Marquage de l'opportunité ${opportunity.id} comme gagnée...`);
+      const updatedOpportunity = await opportunityService.markAsWon(opportunity.id);
+      
+      if (updatedOpportunity) {
+        setOpportunity(updatedOpportunity);
+        toast({
+          title: "Opportunité gagnée",
+          description: "L'opportunité a été marquée comme gagnée",
+        });
+        console.log(`✅ Opportunité ${opportunity.id} marquée comme gagnée`);
+      }
+    } catch (error) {
+      console.error(`❌ Erreur lors du marquage comme gagnée:`, error);
       toast({
-        title: "Opportunité gagnée",
-        description: "L'opportunité a été marquée comme gagnée",
+        title: "Erreur de mise à jour",
+        description: error instanceof Error ? error.message : "Impossible de marquer l'opportunité comme gagnée",
+        variant: "destructive",
       });
     }
   };
@@ -179,37 +237,58 @@ export default function OpportunityDetail() {
   };
 
   // Confirmer la perte
-  const handleConfirmLoss = (data: { lossReason: LossReason; lossDescription?: string }) => {
+  const handleConfirmLoss = async (data: { lossReason: LossReason; lossDescription?: string }) => {
     if (!opportunity) return;
     
-    const updatedOpportunity = updateOpportunity(opportunity.id, {
-      stage: 'lost',
-      probability: 0,
-      closedAt: new Date().toISOString(),
-      lossReason: data.lossReason,
-      lossDescription: data.lossDescription,
-    });
-    
-    if (updatedOpportunity) {
-      setOpportunity(updatedOpportunity);
+    try {
+      console.log(`❌ Marquage de l'opportunité ${opportunity.id} comme perdue...`);
+      const updatedOpportunity = await opportunityService.markAsLost(opportunity.id, {
+        loss_reason: data.lossReason,
+        loss_description: data.lossDescription,
+      });
+      
+      if (updatedOpportunity) {
+        setOpportunity(updatedOpportunity);
+        setLossFormOpen(false);
+        toast({
+          title: "Opportunité perdue",
+          description: "L'opportunité a été marquée comme perdue",
+        });
+        console.log(`✅ Opportunité ${opportunity.id} marquée comme perdue`);
+      }
+    } catch (error) {
+      console.error(`❌ Erreur lors du marquage comme perdue:`, error);
       toast({
-        title: "Opportunité perdue",
-        description: "L'opportunité a été marquée comme perdue",
+        title: "Erreur de mise à jour",
+        description: error instanceof Error ? error.message : "Impossible de marquer l'opportunité comme perdue",
+        variant: "destructive",
       });
     }
   };
 
   // Gérer la soumission du formulaire
-  const handleFormSubmit = (formData: Partial<Opportunity>) => {
+  const handleFormSubmit = async (formData: Partial<Opportunity>) => {
     if (!opportunity) return;
     
-    const updatedOpportunity = updateOpportunity(opportunity.id, formData);
-    if (updatedOpportunity) {
-      setOpportunity(updatedOpportunity);
-      setFormDialogOpen(false);
+    try {
+      console.log(`📝 Mise à jour de l'opportunité ${opportunity.id}...`);
+      const updatedOpportunity = await opportunityService.updateOpportunity(opportunity.id, formData);
+      
+      if (updatedOpportunity) {
+        setOpportunity(updatedOpportunity);
+        setFormDialogOpen(false);
+        toast({
+          title: "Opportunité mise à jour",
+          description: "Les informations de l'opportunité ont été mises à jour",
+        });
+        console.log(`✅ Opportunité ${opportunity.id} mise à jour avec succès`);
+      }
+    } catch (error) {
+      console.error(`❌ Erreur lors de la mise à jour de l'opportunité:`, error);
       toast({
-        title: "Opportunité mise à jour",
-        description: "Les informations de l'opportunité ont été mises à jour",
+        title: "Erreur de mise à jour",
+        description: error instanceof Error ? error.message : "Impossible de mettre à jour l'opportunité",
+        variant: "destructive",
       });
     }
   };

@@ -15,6 +15,25 @@ interface OpportunityStatsProps {
 }
 
 export function OpportunityStats({ stats }: OpportunityStatsProps) {
+  // Protection contre les données manquantes
+  if (!stats || !stats.byStage) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+        {[...Array(4)].map((_, i) => (
+          <MetricCard
+            key={i}
+            title="Chargement..."
+            value="--"
+            change="--"
+            changeType="neutral"
+            icon={FileText}
+            trend="stable"
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
       <MetricCard

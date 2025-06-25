@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -27,11 +27,13 @@ import { OpportunitySortableItem } from "@/components/opportunities/OpportunityS
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { OpportunityLossForm } from "@/components/opportunities/OpportunityLossForm";
 import { Opportunity, OpportunityStatus, LossReason } from "@/lib/types/opportunity";
-import { getOpportunities, getOpportunityStats, updateOpportunity, createOpportunity, deleteOpportunity, createQuoteFromOpportunity } from "@/lib/mock/opportunities";
+// 🚀 MIGRATION: Import du service intelligent au lieu des mocks
+import { opportunityService } from "@/lib/services/opportunityService";
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, PointerSensor, useSensor, useSensors, DragOverlay, closestCorners } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "@/hooks/use-toast";
 import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
+import { ServiceMetrics } from "@/components/opportunities/ServiceMetrics";
 
 // Définition des colonnes du Kanban
 const kanbanColumns = [
@@ -45,13 +47,25 @@ const kanbanColumns = [
 export default function Opportunities() {
   const navigate = useNavigate();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [stats, setStats] = useState(getOpportunityStats());
+  const [stats, setStats] = useState({
+    total: 0,
+    byStage: {} as Record<OpportunityStatus, number>,
+    totalAmount: 0,
+    weightedAmount: 0,
+    wonAmount: 0,
+    lostAmount: 0,
+    conversionRate: 0,
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [lossFormOpen, setLossFormOpen] = useState(false);
   const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | undefined>(undefined);
   const [opportunityToLose, setOpportunityToLose] = useState<Opportunity | undefined>(undefined);
+  
+  // 🚀 Protection contre les double-clics et états incohérents
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Configuration des capteurs pour le drag and drop
   const sensors = useSensors(
@@ -62,12 +76,78 @@ export default function Opportunities() {
     })
   );
 
-  // Charger les opportunités
-  useEffect(() => {
-    const loadedOpportunities = getOpportunities();
-    setOpportunities(loadedOpportunities);
-    setStats(getOpportunityStats());
+  // 🚀 Fonctions de nettoyage d'état pour éviter les écrans figés
+  const resetFormState = useCallback(() => {
+    setFormDialogOpen(false);
+    setEditingOpportunity(undefined);
+    setIsSubmitting(false);
+    console.log('🧹 État formulaire réinitialisé');
   }, []);
+
+  const resetLossFormState = useCallback(() => {
+    setLossFormOpen(false);
+    setOpportunityToLose(undefined);
+    setIsProcessing(false);
+    console.log('🧹 État formulaire de perte réinitialisé');
+  }, []);
+
+  const cleanupStates = useCallback(() => {
+    resetFormState();
+    resetLossFormState();
+    setActiveId(null);
+    setIsSubmitting(false);
+    setIsProcessing(false);
+    console.log('🧹 Tous les états modaux nettoyés');
+  }, [resetFormState, resetLossFormState]);
+
+  // 🚀 MIGRATION: Charger les opportunités via le service intelligent
+  useEffect(() => {
+    const loadOpportunities = async () => {
+      try {
+        console.log('📥 Chargement des opportunités...');
+        const loadedOpportunities = await opportunityService.getOpportunities();
+        setOpportunities(loadedOpportunities);
+        
+        const statsData = await opportunityService.getStats();
+        setStats(statsData);
+        console.log(`✅ ${loadedOpportunities.length} opportunités chargées`);
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des opportunités:', error);
+        toast({
+          title: "Erreur de chargement",
+          description: "Impossible de charger les opportunités. Utilisation des données de fallback.",
+          variant: "destructive",
+        });
+        // Le service gère automatiquement le fallback vers les mocks
+      }
+    };
+    
+    loadOpportunities();
+  }, []);
+
+  // 🚀 Gestionnaire d'échappement clavier pour fermer les modales
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        console.log('⌨️ Échappement détecté - nettoyage des modales');
+        cleanupStates();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [cleanupStates]);
+
+  // 🚀 Nettoyage au démontage du composant
+  useEffect(() => {
+    return () => {
+      console.log('🚪 Démontage du composant Opportunities - nettoyage final');
+      cleanupStates();
+    };
+  }, [cleanupStates]);
 
   // Filtrer les opportunités par statut
   const getOpportunitiesByStatus = (status: OpportunityStatus) => {
@@ -124,8 +204,7 @@ export default function Opportunities() {
     if (newStatus !== activeOpportunity.stage) {
       // Si on déplace vers "perdu", ouvrir le formulaire de raison de perte
       if (newStatus === 'lost') {
-        setOpportunityToLose(activeOpportunity);
-        setLossFormOpen(true);
+        handleMarkAsLostSecure(activeOpportunity);
       } else {
         // Sinon, mettre à jour directement
         handleStageChange(activeOpportunity, newStatus);
@@ -135,41 +214,19 @@ export default function Opportunities() {
     setActiveId(null);
   };
 
-  // Gérer le changement de statut d'une opportunité
-  const handleStageChange = (opportunity: Opportunity, newStage: OpportunityStatus) => {
-    // Déterminer la nouvelle probabilité en fonction du statut
-    let newProbability = opportunity.probability;
-    switch (newStage) {
-      case 'new':
-        newProbability = 10;
-        break;
-      case 'needs_analysis':
-        newProbability = 30;
-        break;
-      case 'negotiation':
-        newProbability = 60;
-        break;
-      case 'won':
-        newProbability = 100;
-        break;
-      case 'lost':
-        newProbability = 0;
-        break;
-    }
-
-    const updatedOpportunity = updateOpportunity(opportunity.id, { 
-      stage: newStage,
-      probability: newProbability
-    });
-    
-    if (updatedOpportunity) {
+  // 🚀 MIGRATION: Gérer le changement de statut via le service intelligent
+  const handleStageChange = async (opportunity: Opportunity, newStage: OpportunityStatus) => {
+    try {
+      const updatedOpportunity = await opportunityService.updateStage(opportunity.id, newStage);
+      
       // Mettre à jour la liste des opportunités
       setOpportunities(opportunities.map(opp => 
         opp.id === updatedOpportunity.id ? updatedOpportunity : opp
       ));
       
       // Mettre à jour les statistiques
-      setStats(getOpportunityStats());
+      const statsData = await opportunityService.getStats();
+      setStats(statsData);
       
       // Afficher une notification
       toast({
@@ -182,6 +239,13 @@ export default function Opportunities() {
           newStage === 'lost' ? 'Perdues' : 'En attente'
         }"`,
       });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour l'opportunité",
+        variant: "destructive"
+      });
     }
   };
 
@@ -191,108 +255,165 @@ export default function Opportunities() {
   };
 
   // Gérer l'édition d'une opportunité
-  const handleEditOpportunity = (opportunity: Opportunity) => {
+  const handleEditOpportunitySecure = useCallback((opportunity: Opportunity) => {
+    console.log(`📝 Ouverture du formulaire d'édition pour l'opportunité ${opportunity.id}`);
     setEditingOpportunity(opportunity);
     setFormDialogOpen(true);
-  };
+  }, []);
 
-  // Gérer la suppression d'une opportunité
-  const handleDeleteOpportunity = (opportunity: Opportunity) => {
+  // 🚀 MIGRATION: Gérer la suppression via le service intelligent
+  const handleDeleteOpportunity = async (opportunity: Opportunity) => {
     if (confirm(`Êtes-vous sûr de vouloir supprimer l'opportunité "${opportunity.name}" ?`)) {
-      const success = deleteOpportunity(opportunity.id);
-      if (success) {
-        // Mettre à jour la liste des opportunités
-        setOpportunities(opportunities.filter(opp => opp.id !== opportunity.id));
-        
-        // Mettre à jour les statistiques
-        setStats(getOpportunityStats());
-        
-        // Afficher une notification
+      try {
+        const success = await opportunityService.deleteOpportunity(opportunity.id);
+        if (success) {
+          // Mettre à jour la liste des opportunités
+          setOpportunities(opportunities.filter(opp => opp.id !== opportunity.id));
+          
+          // Mettre à jour les statistiques
+          const statsData = await opportunityService.getStats();
+          setStats(statsData);
+          
+          // Afficher une notification
+          toast({
+            title: "Opportunité supprimée",
+            description: "L'opportunité a été supprimée avec succès",
+          });
+        }
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
         toast({
-          title: "Opportunité supprimée",
-          description: "L'opportunité a été supprimée avec succès",
+          title: "Erreur",
+          description: "Impossible de supprimer l'opportunité",
+          variant: "destructive"
         });
       }
     }
   };
 
-  // Gérer la création d'un devis à partir d'une opportunité
-  const handleCreateQuote = (opportunity: Opportunity) => {
-    const result = createQuoteFromOpportunity(opportunity.id);
-    if (result.success) {
+  // 🚀 MIGRATION: Gérer la création de devis via le service intelligent
+  const handleCreateQuote = async (opportunity: Opportunity) => {
+    try {
+      const result = await opportunityService.createQuote(opportunity.id, {
+        title: `Devis - ${opportunity.name}`,
+        description: opportunity.description
+      });
+      
       // Rediriger vers l'éditeur de devis
-      navigate(`/devis/edit/${result.quoteId}`);
+      navigate(`/devis/edit/${result.quote_id}`);
+      
+      toast({
+        title: "Devis créé",
+        description: "Le devis a été créé avec succès depuis l'opportunité",
+      });
+    } catch (error) {
+      console.error('Erreur lors de la création du devis:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer le devis",
+        variant: "destructive"
+      });
     }
   };
 
-  // Marquer une opportunité comme gagnée
-  const handleMarkAsWon = (opportunity: Opportunity) => {
-    const updatedOpportunity = updateOpportunity(opportunity.id, { 
-      stage: 'won',
-      probability: 100,
-    });
-    
-    if (updatedOpportunity) {
+  // 🚀 MIGRATION: Marquer comme gagnée via le service intelligent
+  const handleMarkAsWon = async (opportunity: Opportunity) => {
+    try {
+      const updatedOpportunity = await opportunityService.markAsWon(opportunity.id);
+      
       // Mettre à jour la liste des opportunités
       setOpportunities(opportunities.map(opp => 
         opp.id === updatedOpportunity.id ? updatedOpportunity : opp
       ));
       
       // Mettre à jour les statistiques
-      setStats(getOpportunityStats());
+      const statsData = await opportunityService.getStats();
+      setStats(statsData);
       
       // Afficher une notification
       toast({
         title: "Opportunité gagnée",
         description: "L'opportunité a été marquée comme gagnée",
       });
+    } catch (error) {
+      console.error('Erreur lors du marquage gagnée:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de marquer l'opportunité comme gagnée",
+        variant: "destructive"
+      });
     }
   };
 
   // Marquer une opportunité comme perdue
-  const handleMarkAsLost = (opportunity: Opportunity) => {
+  const handleMarkAsLostSecure = useCallback((opportunity: Opportunity) => {
+    console.log(`❌ Ouverture du formulaire de perte pour l'opportunité ${opportunity.id}`);
     setOpportunityToLose(opportunity);
     setLossFormOpen(true);
-  };
+  }, []);
 
-  // Confirmer la perte d'une opportunité
-  const handleConfirmLoss = (data: { lossReason: LossReason; lossDescription?: string }) => {
-    if (!opportunityToLose) return;
+  // 🚀 MIGRATION: Confirmer la perte via le service intelligent
+  const handleConfirmLoss = useCallback(async (data: { lossReason: LossReason; lossDescription?: string }) => {
+    if (!opportunityToLose || isProcessing) {
+      console.warn('⚠️ Aucune opportunité sélectionnée pour la perte ou traitement en cours');
+      return;
+    }
     
-    const updatedOpportunity = updateOpportunity(opportunityToLose.id, {
-      stage: 'lost',
-      probability: 0,
-      lossReason: data.lossReason,
-      lossDescription: data.lossDescription,
-    });
+    setIsProcessing(true);
     
-    if (updatedOpportunity) {
+    try {
+      console.log(`❌ Marquage de l'opportunité ${opportunityToLose.id} comme perdue...`);
+      const updatedOpportunity = await opportunityService.markAsLost(opportunityToLose.id, {
+        loss_reason: data.lossReason,
+        loss_description: data.lossDescription,
+      });
+      
       // Mettre à jour la liste des opportunités
-      setOpportunities(opportunities.map(opp => 
+      setOpportunities(prev => prev.map(opp => 
         opp.id === updatedOpportunity.id ? updatedOpportunity : opp
       ));
       
       // Mettre à jour les statistiques
-      setStats(getOpportunityStats());
+      const statsData = await opportunityService.getStats();
+      setStats(statsData);
       
       // Afficher une notification
       toast({
         title: "Opportunité perdue",
         description: "L'opportunité a été marquée comme perdue",
       });
+      
+      console.log(`✅ Opportunité ${opportunityToLose.id} marquée comme perdue`);
+    } catch (error) {
+      console.error('❌ Erreur lors du marquage perdue:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de marquer l'opportunité comme perdue",
+        variant: "destructive"
+      });
+    } finally {
+      // 🚀 Nettoyage garanti même en cas d'erreur
+      resetLossFormState();
     }
-    
-    setOpportunityToLose(undefined);
-  };
+  }, [opportunityToLose, resetLossFormState, isProcessing]);
 
-  // Gérer la soumission du formulaire d'opportunité
-  const handleFormSubmit = (formData: Partial<Opportunity>) => {
-    if (editingOpportunity) {
-      // Mode édition
-      const updatedOpportunity = updateOpportunity(editingOpportunity.id, formData);
-      if (updatedOpportunity) {
+  // 🚀 MIGRATION: Gérer la soumission via le service intelligent
+  const handleFormSubmit = useCallback(async (formData: Partial<Opportunity>) => {
+    if (!formData || isSubmitting) {
+      console.warn('⚠️ Données de formulaire manquantes ou soumission en cours');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      if (editingOpportunity) {
+        // Mode édition
+        console.log(`📝 Mise à jour de l'opportunité ${editingOpportunity.id}...`);
+        const updatedOpportunity = await opportunityService.updateOpportunity(editingOpportunity.id, formData);
+        
         // Mettre à jour la liste des opportunités
-        setOpportunities(opportunities.map(opp => 
+        setOpportunities(prev => prev.map(opp => 
           opp.id === updatedOpportunity.id ? updatedOpportunity : opp
         ));
         
@@ -301,34 +422,73 @@ export default function Opportunities() {
           title: "Opportunité mise à jour",
           description: "L'opportunité a été mise à jour avec succès",
         });
+        
+        console.log(`✅ Opportunité ${editingOpportunity.id} mise à jour`);
+      } else {
+        // Mode création
+        console.log('🆕 Création d\'une nouvelle opportunité...');
+        const newOpportunity = await opportunityService.createOpportunity(formData);
+        
+        // Ajouter la nouvelle opportunité à la liste
+        setOpportunities(prev => [...prev, newOpportunity]);
+        
+        // Afficher une notification
+        toast({
+          title: "Opportunité créée",
+          description: "L'opportunité a été créée avec succès",
+        });
+        
+        console.log(`✅ Nouvelle opportunité ${newOpportunity.id} créée`);
       }
-    } else {
-      // Mode création
-      const newOpportunity = createOpportunity(formData as Omit<Opportunity, 'id' | 'createdAt' | 'updatedAt'>);
       
-      // Ajouter la nouvelle opportunité à la liste
-      setOpportunities([...opportunities, newOpportunity]);
+      // Mettre à jour les statistiques
+      const statsData = await opportunityService.getStats();
+      setStats(statsData);
       
-      // Afficher une notification
+    } catch (error) {
+      console.error('❌ Erreur lors de la soumission:', error);
       toast({
-        title: "Opportunité créée",
-        description: "L'opportunité a été créée avec succès",
+        title: "Erreur",
+        description: editingOpportunity ? "Impossible de mettre à jour l'opportunité" : "Impossible de créer l'opportunité",
+        variant: "destructive"
       });
+    } finally {
+      // 🚀 Nettoyage garanti même en cas d'erreur
+      resetFormState();
     }
-    
-    // Mettre à jour les statistiques
-    setStats(getOpportunityStats());
-    
-    // Fermer le formulaire
-    setFormDialogOpen(false);
-    setEditingOpportunity(undefined);
-  };
+  }, [editingOpportunity, resetFormState, isSubmitting]);
 
-  // Créer une nouvelle opportunité
-  const handleAddNew = (stage?: OpportunityStatus) => {
+  // 🚀 Gérer l'ouverture sécurisée du formulaire de création
+  const handleAddNewSecure = useCallback((stage?: OpportunityStatus) => {
+    console.log('🆕 Ouverture du formulaire de création');
     setEditingOpportunity(undefined);
     setFormDialogOpen(true);
-  };
+  }, []);
+
+  // 🚀 Gestionnaires de fermeture sécurisés pour les modales
+  const handleFormDialogClose = useCallback((open: boolean) => {
+    if (!open) {
+      console.log('🚪 Fermeture sécurisée du formulaire');
+      resetFormState();
+    } else {
+      setFormDialogOpen(true);
+    }
+  }, [resetFormState]);
+
+  const handleLossFormClose = useCallback((open: boolean) => {
+    if (!open) {
+      console.log('🚪 Fermeture sécurisée du formulaire de perte');
+      resetLossFormState();
+    } else {
+      setLossFormOpen(true);
+    }
+  }, [resetLossFormState]);
+
+  // 🚀 Gestionnaire d'annulation de formulaire sécurisé
+  const handleFormCancel = useCallback(() => {
+    console.log('❌ Annulation du formulaire');
+    resetFormState();
+  }, [resetFormState]);
 
   // Obtenir l'opportunité active pour l'overlay de glisser-déposer
   const activeOpportunity = activeId ? opportunities.find(opp => opp.id === activeId) : null;
@@ -346,7 +506,7 @@ export default function Opportunities() {
           </div>
           <Button 
             className="gap-2 bg-white text-benaya-900 hover:bg-white/90 mt-3 sm:mt-0"
-            onClick={() => handleAddNew()}
+            onClick={() => handleAddNewSecure()}
           >
             <Plus className="w-4 h-4" />
             Nouvelle opportunité
@@ -380,13 +540,13 @@ export default function Opportunities() {
                 opportunities={getOpportunitiesByStatus(column.status)}
                 count={getOpportunitiesByStatus(column.status).length}
                 onView={handleViewOpportunity}
-                onEdit={handleEditOpportunity}
+                onEdit={handleEditOpportunitySecure}
                 onDelete={handleDeleteOpportunity}
                 onStageChange={handleStageChange}
                 onCreateQuote={handleCreateQuote}
                 onMarkAsWon={handleMarkAsWon}
-                onMarkAsLost={handleMarkAsLost}
-                onAddNew={handleAddNew}
+                onMarkAsLost={handleMarkAsLostSecure}
+                onAddNew={handleAddNewSecure}
                 activeId={activeId}
               />
             </div>
@@ -405,7 +565,7 @@ export default function Opportunities() {
       </DndContext>
 
       {/* Opportunity Form Dialog */}
-      <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
+      <Dialog open={formDialogOpen} onOpenChange={handleFormDialogClose}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>{editingOpportunity ? "Modifier l'opportunité" : "Nouvelle opportunité"}</DialogTitle>
@@ -419,10 +579,7 @@ export default function Opportunities() {
           <OpportunityForm
             opportunity={editingOpportunity}
             onSubmit={handleFormSubmit}
-            onCancel={() => {
-              setFormDialogOpen(false);
-              setEditingOpportunity(undefined);
-            }}
+            onCancel={handleFormCancel}
             isEditing={!!editingOpportunity}
           />
         </DialogContent>
@@ -431,9 +588,12 @@ export default function Opportunities() {
       {/* Loss Reason Form Dialog */}
       <OpportunityLossForm
         open={lossFormOpen}
-        onOpenChange={setLossFormOpen}
+        onOpenChange={handleLossFormClose}
         onSubmit={handleConfirmLoss}
       />
+      
+      {/* 🚀 Service Intelligent Monitoring */}
+      <ServiceMetrics />
     </div>
   );
 }

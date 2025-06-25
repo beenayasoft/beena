@@ -34,28 +34,11 @@ export default function Auth() {
           <div className="flex items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <div className="w-12 h-12 text-white">
-                <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
-                  <g fill="currentColor" opacity="0.9">
-                    <path d="M20 2L27.32 6.5V15.5L20 20L12.68 15.5V6.5L20 2Z" />
-                    <path d="M8.66 9L16 4.5V13.5L8.66 18L1.34 13.5V4.5L8.66 9Z" />
-                    <path d="M31.34 9L38.66 4.5V13.5L31.34 18L24 13.5V4.5L31.34 9Z" />
-                    <path d="M8.66 31L16 26.5V35.5L8.66 40L1.34 35.5V26.5L8.66 31Z" />
-                    <path d="M31.34 31L38.66 26.5V35.5L31.34 40L24 35.5V26.5L31.34 31Z" />
-                    <path d="M20 38L27.32 33.5V24.5L20 20L12.68 24.5V33.5L20 38Z" />
-                  </g>
-                  <path
-                    d="M15 20L18.5 23.5L25 17"
-                    stroke="white"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </svg>
+                <img src="/logo.svg" alt="Beenaya logo" className="w-full h-full" />
               </div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold">benaya</h1>
+              <h1 className="text-3xl font-bold">Beenaya</h1>
               <p className="text-lg opacity-90">ERP Construction</p>
             </div>
           </div>
@@ -102,29 +85,11 @@ export default function Auth() {
           {/* Mobile Logo */}
           <div className="lg:hidden text-center">
             <div className="inline-flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-benaya-900 flex items-center justify-center">
-                <div className="w-6 h-6 text-white">
-                  <svg
-                    viewBox="0 0 40 40"
-                    fill="none"
-                    className="w-full h-full"
-                  >
-                    <g fill="currentColor" opacity="0.9">
-                      <path d="M20 2L27.32 6.5V15.5L20 20L12.68 15.5V6.5L20 2Z" />
-                    </g>
-                    <path
-                      d="M15 20L18.5 23.5L25 17"
-                      stroke="white"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  </svg>
-                </div>
+              <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                <img src="/logo.svg" alt="Beenaya logo" className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-benaya-900">benaya</h1>
+                <h1 className="text-2xl font-bold text-benaya-900">Beenaya</h1>
               </div>
             </div>
           </div>

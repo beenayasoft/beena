@@ -6,7 +6,7 @@ import { EntityType } from "./types";
 interface TierCreateFlowProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (createdTierId?: string) => void;
 }
 
 export function TierCreateFlow({ open, onOpenChange, onSuccess }: TierCreateFlowProps) {
@@ -39,12 +39,12 @@ export function TierCreateFlow({ open, onOpenChange, onSuccess }: TierCreateFlow
     }
   };
 
-  const handleSuccess = () => {
-    console.log("Creation successful");
+  const handleSuccess = (createdTierId?: string) => {
+    console.log("Creation successful", { createdTierId });
     // Fermer tout le workflow
     onOpenChange(false);
-    // Notifier le succès
-    onSuccess?.();
+    // Notifier le succès avec l'ID du tier créé
+    onSuccess?.(createdTierId);
   };
 
   const handleMainDialogClose = (isOpen: boolean) => {

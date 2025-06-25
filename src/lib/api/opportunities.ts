@@ -32,8 +32,8 @@ export const opportunitiesApi = {
   // Récupérer toutes les opportunités avec filtres optionnels
   getOpportunities: async (filters?: OpportunityFilters): Promise<Opportunity[]> => {
     try {
-      const response = await apiClient.get('/v1/opportunities/', { params: filters });
-      return response.data;
+      const response = await apiClient.get('/opportunities/', { params: filters });
+      return response.data.results || response.data; // Support pagination
     } catch (error) {
       console.error('Error fetching opportunities:', error);
       throw error;
@@ -43,7 +43,7 @@ export const opportunitiesApi = {
   // Récupérer une opportunité par ID
   getOpportunity: async (id: string): Promise<Opportunity> => {
     try {
-      const response = await apiClient.get(`/v1/opportunities/${id}/`);
+      const response = await apiClient.get(`/opportunities/${id}/`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching opportunity ${id}:`, error);
@@ -54,7 +54,7 @@ export const opportunitiesApi = {
   // Créer une nouvelle opportunité
   createOpportunity: async (data: Partial<Opportunity>): Promise<Opportunity> => {
     try {
-      const response = await apiClient.post('/v1/opportunities/', data);
+      const response = await apiClient.post('/opportunities/', data);
       return response.data;
     } catch (error) {
       console.error('Error creating opportunity:', error);
@@ -65,7 +65,7 @@ export const opportunitiesApi = {
   // Mettre à jour une opportunité existante
   updateOpportunity: async (id: string, data: Partial<Opportunity>): Promise<Opportunity> => {
     try {
-      const response = await apiClient.patch(`/v1/opportunities/${id}/`, data);
+      const response = await apiClient.patch(`/opportunities/${id}/`, data);
       return response.data;
     } catch (error) {
       console.error(`Error updating opportunity ${id}:`, error);
@@ -76,7 +76,7 @@ export const opportunitiesApi = {
   // Supprimer une opportunité
   deleteOpportunity: async (id: string): Promise<void> => {
     try {
-      await apiClient.delete(`/v1/opportunities/${id}/`);
+      await apiClient.delete(`/opportunities/${id}/`);
     } catch (error) {
       console.error(`Error deleting opportunity ${id}:`, error);
       throw error;
@@ -86,7 +86,7 @@ export const opportunitiesApi = {
   // Mettre à jour le statut d'une opportunité
   updateOpportunityStage: async (id: string, stage: string): Promise<Opportunity> => {
     try {
-      const response = await apiClient.patch(`/v1/opportunities/${id}/update_stage/`, { stage });
+      const response = await apiClient.patch(`/opportunities/${id}/update_stage/`, { stage });
       return response.data;
     } catch (error) {
       console.error(`Error updating opportunity ${id} stage:`, error);
@@ -95,10 +95,10 @@ export const opportunitiesApi = {
   },
 
   // Marquer une opportunité comme gagnée
-  markAsWon: async (id: string, data?: { closingNotes?: string }): Promise<Opportunity> => {
+  markAsWon: async (id: string, data?: { project_id?: string }): Promise<Opportunity> => {
     try {
-      const response = await apiClient.post(`/v1/opportunities/${id}/mark_as_won/`, data || {});
-      return response.data;
+      const response = await apiClient.post(`/opportunities/${id}/mark_won/`, data || {});
+      return response.data.opportunity || response.data;
     } catch (error) {
       console.error(`Error marking opportunity ${id} as won:`, error);
       throw error;
@@ -106,10 +106,10 @@ export const opportunitiesApi = {
   },
 
   // Marquer une opportunité comme perdue
-  markAsLost: async (id: string, data: { lossReason: string; lossDescription?: string }): Promise<Opportunity> => {
+  markAsLost: async (id: string, data: { loss_reason: string; loss_description?: string }): Promise<Opportunity> => {
     try {
-      const response = await apiClient.post(`/v1/opportunities/${id}/mark_as_lost/`, data);
-      return response.data;
+      const response = await apiClient.post(`/opportunities/${id}/mark_lost/`, data);
+      return response.data.opportunity || response.data;
     } catch (error) {
       console.error(`Error marking opportunity ${id} as lost:`, error);
       throw error;
@@ -117,9 +117,9 @@ export const opportunitiesApi = {
   },
 
   // Créer un devis à partir d'une opportunité
-  createQuoteFromOpportunity: async (id: string): Promise<{ quoteId: string }> => {
+  createQuoteFromOpportunity: async (id: string, data?: { title?: string; description?: string }): Promise<{ quote_id: string; quote: any }> => {
     try {
-      const response = await apiClient.post(`/v1/opportunities/${id}/create_quote/`);
+      const response = await apiClient.post(`/opportunities/${id}/create_quote/`, data || {});
       return response.data;
     } catch (error) {
       console.error(`Error creating quote from opportunity ${id}:`, error);
@@ -127,13 +127,13 @@ export const opportunitiesApi = {
     }
   },
 
-  // Créer un projet à partir d'une opportunité gagnée
-  createProjectFromOpportunity: async (id: string): Promise<{ projectId: string }> => {
+  // Obtenir les données Kanban
+  getKanbanData: async (): Promise<any> => {
     try {
-      const response = await apiClient.post(`/v1/opportunities/${id}/create_project/`);
+      const response = await apiClient.get('/opportunities/kanban/');
       return response.data;
     } catch (error) {
-      console.error(`Error creating project from opportunity ${id}:`, error);
+      console.error('Error fetching kanban data:', error);
       throw error;
     }
   },
@@ -141,7 +141,7 @@ export const opportunitiesApi = {
   // Obtenir les statistiques des opportunités
   getOpportunityStats: async (): Promise<any> => {
     try {
-      const response = await apiClient.get('/v1/opportunities/stats/');
+      const response = await apiClient.get('/opportunities/stats/');
       return response.data;
     } catch (error) {
       console.error('Error fetching opportunity stats:', error);
