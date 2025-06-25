@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { QuoteItem } from "@/lib/types/quote";
+import { EditorQuoteItem } from "@/lib/api/quotes";
 import { formatCurrency } from "@/lib/utils";
 
 interface DiscountFormProps {

@@ -1,5 +1,5 @@
 import React from "react";
-import { Quote, QuoteItem } from "@/lib/types/quote";
+import { Quote, QuoteItem } from "@/lib/api/quotes";
 import { formatCurrency } from "@/lib/utils";
 
 interface QuotePreviewProps {

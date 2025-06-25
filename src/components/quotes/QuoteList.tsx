@@ -15,8 +15,17 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
-import { Quote } from "@/lib/api/quotes";
+import { Quote, QuotesPaginationInfo } from "@/lib/api/quotes";
 
 interface QuoteListProps {
   quotes: Quote[];
@@ -29,6 +38,10 @@ interface QuoteListProps {
   onDuplicate?: (quote: Quote) => void;
   onDownload?: (quote: Quote) => void;
   loading?: boolean;
+  // 🚀 NOUVEAUX: Propriétés de pagination optimisée
+  pagination?: QuotesPaginationInfo;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
 }
 
 export function QuoteList({
@@ -42,6 +55,10 @@ export function QuoteList({
   onDuplicate,
   onDownload,
   loading = false,
+  // 🚀 PAGINATION OPTIMISÉE
+  pagination,
+  onPageChange,
+  onPageSizeChange,
 }: QuoteListProps) {
   const getStatusBadge = (status: string, statusDisplay: string) => {
     switch (status) {
@@ -99,6 +116,51 @@ export function QuoteList({
     }).format(amount);
   };
 
+  // 🚀 LOGIQUE DE PAGINATION (similaire à TiersList)
+  const generatePaginationItems = () => {
+    if (!pagination) return [];
+    
+    const items: (number | string)[] = [];
+    const currentPage = pagination.current_page;
+    const totalPages = pagination.num_pages;
+    
+    // Toujours afficher la première page
+    if (totalPages > 0) {
+      items.push(1);
+    }
+    
+    // Pages autour de la page courante
+    let start = Math.max(2, currentPage - 1);
+    let end = Math.min(totalPages - 1, currentPage + 1);
+    
+    // Ajouter des ellipses si nécessaire
+    if (start > 2) {
+      items.push('...');
+    }
+    
+    // Pages du milieu
+    for (let i = start; i <= end; i++) {
+      if (i > 1 && i < totalPages) {
+        items.push(i);
+      }
+    }
+    
+    // Ajouter des ellipses si nécessaire
+    if (end < totalPages - 1) {
+      items.push('...');
+    }
+    
+    // Toujours afficher la dernière page (si différente de la première)
+    if (totalPages > 1) {
+      items.push(totalPages);
+    }
+    
+    return items;
+  };
+
+  // 🔄 Pagination externe activée si fournie
+  const showExternalPagination = pagination && pagination.num_pages > 1;
+  
   if (loading) {
     return (
       <div className="overflow-hidden border border-neutral-200 dark:border-neutral-700 rounded-lg">
@@ -263,6 +325,52 @@ export function QuoteList({
           )}
         </TableBody>
       </Table>
+      
+      {/* 🚀 PAGINATION OPTIMISÉE */}
+      {pagination && pagination.num_pages > 1 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="text-sm text-muted-foreground">
+            Affichage de {((pagination.current_page - 1) * pagination.page_size) + 1} à {Math.min(pagination.current_page * pagination.page_size, pagination.count)} sur {pagination.count} devis
+          </div>
+          <Pagination>
+            <PaginationContent>
+              {pagination.has_previous && (
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => onPageChange && onPageChange(pagination.previous_page!)}
+                    className="cursor-pointer"
+                  />
+                </PaginationItem>
+              )}
+              
+              {generatePaginationItems().map((item, index) => (
+                <PaginationItem key={index}>
+                  {item === '...' ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      onClick={() => onPageChange && onPageChange(item as number)}
+                      isActive={pagination.current_page === item}
+                      className="cursor-pointer"
+                    >
+                      {item}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              
+              {pagination.has_next && (
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => onPageChange && onPageChange(pagination.next_page!)}
+                    className="cursor-pointer"
+                  />
+                </PaginationItem>
+              )}
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 } 

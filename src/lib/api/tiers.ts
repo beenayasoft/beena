@@ -63,6 +63,38 @@ export interface ContactData {
   contact_principal_facture: boolean;
 }
 
+// Types pour la pagination
+export interface PaginationInfo {
+  count: number;
+  num_pages: number;
+  current_page: number;
+  page_size: number;
+  has_next: boolean;
+  has_previous: boolean;
+  next_page: number | null;
+  previous_page: number | null;
+}
+
+export interface PaginatedResponse<T> {
+  results: T[];
+  pagination: PaginationInfo;
+}
+
+export interface TiersFilters {
+  type?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface TiersGlobalStats {
+  total: number;
+  client: number;
+  fournisseur: number;
+  prospect: number;
+  sous_traitant: number;
+}
+
 // Types pour la création (sans ID)
 export type AdresseCreateData = Omit<AdresseData, 'id'>;
 export type ContactCreateData = Omit<ContactData, 'id'>;
@@ -244,56 +276,105 @@ const adaptTierToApi = (tier: Tier & { entityType?: string, fonction?: string, p
 
 // API Tiers
 export const tiersApi = {
-  // Récupérer la liste des tiers
-  getTiers: async (filters?: Record<string, string>): Promise<Tier[]> => {
+  // Récupérer la liste des tiers AVEC PAGINATION OPTIMISÉE
+  getTiers: async (filters?: TiersFilters): Promise<PaginatedResponse<Tier>> => {
     try {
-      console.log("Appel API: Récupération de la liste des tiers avec frontend_format");
+      console.log("🚀 API OPTIMISÉE: Récupération paginée des tiers", filters);
       
       const params = new URLSearchParams();
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
-          params.append(key, value);
+          if (value !== undefined && value !== null) {
+            params.append(key, value.toString());
+          }
         });
       }
       
-      // Utiliser l'endpoint frontend_format qui retourne directement les données formatées
+      // Utiliser l'endpoint frontend_format OPTIMISÉ avec pagination
       const response = await apiClient.get(`/tiers/tiers/frontend_format/?${params.toString()}`);
-      console.log("Réponse API frontend_format:", response.data);
+      console.log("📊 Réponse API paginée:", response.data);
       
       if (!response.data) {
-        console.warn("Données vides reçues de l'API frontend_format");
-        return [];
-      }
-      
-      // Les données peuvent être dans un format paginé ou direct
-      const tiersData = response.data.results || response.data;
-      
-      if (!Array.isArray(tiersData)) {
-        console.warn("Format de données inattendu:", tiersData);
-        return [];
-      }
-      
-      // Adapter les données pour s'assurer de la compatibilité avec le nouveau modèle
-      return tiersData.map(tierData => {
-        console.log(`Traitement du tier ${tierData.id}:`, tierData);
-        
-        const result = {
-          id: tierData.id || '',
-          name: tierData.name || tierData.nom || '',
-          type: tierData.relation ? [tierData.relation] : tierData.type || [], // Gérer la migration relation -> type
-          contact: tierData.contact || '',
-          email: tierData.email || '',
-          phone: tierData.phone || '',
-          address: tierData.address || '',
-          siret: tierData.siret || '',
-          status: tierData.status || 'active'
+        console.warn("Données vides reçues de l'API");
+        return {
+          results: [],
+          pagination: {
+            count: 0,
+            num_pages: 0,
+            current_page: 1,
+            page_size: 20,
+            has_next: false,
+            has_previous: false,
+            next_page: null,
+            previous_page: null
+          }
         };
+      }
+      
+      // Vérifier si la réponse est paginée ou directe (rétrocompatibilité)
+      const isPaginated = response.data.pagination && response.data.results;
+      
+      if (isPaginated) {
+        // 🎯 NOUVELLE STRUCTURE PAGINÉE
+        console.log("✅ Structure paginée détectée");
+        const tiersData = response.data.results || [];
         
-        console.log(`Tier adapté ${tierData.id}:`, result);
-        return result;
-      });
+        return {
+          results: tiersData.map((tierData: any) => ({
+            id: tierData.id || '',
+            name: tierData.name || tierData.nom || '',
+            type: tierData.type || [],
+            contact: tierData.contact || '',
+            email: tierData.email || '',
+            phone: tierData.phone || '',
+            address: tierData.address || '',
+            siret: tierData.siret || '',
+            status: tierData.status || 'active'
+          })),
+          pagination: response.data.pagination
+        };
+      } else {
+        // 🔄 ANCIENNE STRUCTURE (fallback) - à supprimer après migration
+        console.warn("⚠️ Ancienne structure détectée - utilisant le fallback");
+        const tiersData = Array.isArray(response.data) ? response.data : [];
+        
+        return {
+          results: tiersData.map((tierData: any) => ({
+            id: tierData.id || '',
+            name: tierData.name || tierData.nom || '',
+            type: tierData.relation ? [tierData.relation] : tierData.type || [],
+            contact: tierData.contact || '',
+            email: tierData.email || '',
+            phone: tierData.phone || '',
+            address: tierData.address || '',
+            siret: tierData.siret || '',
+            status: tierData.status || 'active'
+          })),
+          pagination: {
+            count: tiersData.length,
+            num_pages: 1,
+            current_page: 1,
+            page_size: tiersData.length,
+            has_next: false,
+            has_previous: false,
+            next_page: null,
+            previous_page: null
+          }
+        };
+      }
     } catch (error) {
-      console.error('Erreur lors de la récupération des tiers:', error);
+      console.error('🚨 Erreur lors de la récupération des tiers:', error);
+      throw error;
+    }
+  },
+
+  // MÉTHODE LEGACY - garde pour compatibilité temporaire
+  getTiersLegacy: async (filters?: Record<string, string>): Promise<Tier[]> => {
+    try {
+      const response = await tiersApi.getTiers(filters as TiersFilters);
+      return response.results;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des tiers (legacy):', error);
       throw error;
     }
   },
@@ -390,6 +471,33 @@ export const tiersApi = {
     } catch (error) {
       console.error(`Erreur lors de la restauration du tier ${id}:`, error);
       throw error;
+    }
+  },
+
+  // 📊 Récupérer les statistiques globales des tiers
+  getStats: async (search?: string): Promise<TiersGlobalStats> => {
+    try {
+      console.log("📊 API: Récupération des statistiques globales des tiers");
+      
+      const params = new URLSearchParams();
+      if (search && search.trim()) {
+        params.append('search', search.trim());
+      }
+      
+      const response = await apiClient.get(`/tiers/tiers/stats/?${params.toString()}`);
+      console.log("📊 Stats reçues:", response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('🚨 Erreur lors de la récupération des stats:', error);
+      // Retourner des stats vides en cas d'erreur
+      return {
+        total: 0,
+        client: 0,
+        fournisseur: 0,
+        prospect: 0,
+        sous_traitant: 0
+      };
     }
   }
 };

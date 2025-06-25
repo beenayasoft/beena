@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { QuoteItem, VATRate } from '@/lib/types/quote';
+import { EditorQuoteItem } from '@/lib/api/quotes';
 import { Work, Material, Labor } from '@/lib/types/workLibrary';
 import { libraryApi } from '@/lib/api/library';
 import { formatCurrency } from '@/lib/utils';
@@ -28,7 +28,7 @@ import { toast } from 'sonner';
 interface LibraryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (item: QuoteItem) => void;
+  onSelect: (item: EditorQuoteItem) => void;
 }
 
 export function LibraryModal({ open, onOpenChange, onSelect }: LibraryModalProps) {
@@ -106,8 +106,8 @@ export function LibraryModal({ open, onOpenChange, onSelect }: LibraryModalProps
     }
   };
 
-  // Convertir un élément de bibliothèque en QuoteItem
-  const convertToQuoteItem = (item: Work | Material | Labor): QuoteItem => {
+  // Convertir un élément de bibliothèque en EditorQuoteItem
+  const convertToQuoteItem = (item: Work | Material | Labor): EditorQuoteItem => {
     const baseItem = {
       id: crypto.randomUUID(),
       position: 0, // Sera mis à jour par le contexte
@@ -115,8 +115,9 @@ export function LibraryModal({ open, onOpenChange, onSelect }: LibraryModalProps
       description: item.description || '',
       unit: item.unit,
       quantity: 1,
-      totalHT: 0, // Sera calculé par le contexte
-      totalTTC: 0, // Sera calculé par le contexte
+      totalHt: 0, // Sera calculé par le contexte
+      totalTtc: 0, // Sera calculé par le contexte
+      discount: 0,
     };
 
     if ('components' in item) {
@@ -126,9 +127,9 @@ export function LibraryModal({ open, onOpenChange, onSelect }: LibraryModalProps
         type: 'work',
         reference: item.reference,
         unitPrice: item.recommendedPrice,
-        vatRate: 20 as VATRate, // Valeur par défaut
+        vat_rate: "20", // Valeur par défaut
         margin: item.margin,
-        workId: item.id,
+        work_id: item.id,
       };
     } else if ('vatRate' in item) {
       // C'est un matériau
@@ -137,7 +138,7 @@ export function LibraryModal({ open, onOpenChange, onSelect }: LibraryModalProps
         type: 'product',
         reference: item.reference,
         unitPrice: item.unitPrice,
-        vatRate: item.vatRate as VATRate,
+        vat_rate: item.vatRate.toString(),
       };
     } else {
       // C'est de la main d'œuvre
@@ -145,7 +146,7 @@ export function LibraryModal({ open, onOpenChange, onSelect }: LibraryModalProps
         ...baseItem,
         type: 'service',
         unitPrice: item.unitPrice,
-        vatRate: 20 as VATRate, // Valeur par défaut
+        vat_rate: "20", // Valeur par défaut
       };
     }
   };

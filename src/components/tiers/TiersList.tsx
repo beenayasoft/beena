@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/pagination";
 import { useTierUtils } from "./index";
 import { Tier } from "./types";
+import { PaginationInfo } from "@/lib/api/tiers";
 import { MouseEvent, useState, useMemo } from "react";
 
 interface TiersListProps {
@@ -44,6 +45,11 @@ interface TiersListProps {
   onCall?: (tier: Tier) => void;
   onEmail?: (tier: Tier) => void;
   itemsPerPage?: number;
+  // 🚀 NOUVEAU: Flag pour désactiver la pagination interne (quand on utilise la pagination backend)
+  disableInternalPagination?: boolean;
+  // 🚀 NOUVEAU: Pagination externe
+  pagination?: PaginationInfo;
+  onPageChange?: (page: number) => void;
 }
 
 export function TiersList({ 
@@ -53,26 +59,34 @@ export function TiersList({
   onDelete,
   onCall,
   onEmail,
-  itemsPerPage = 10
+  itemsPerPage = 10,
+  disableInternalPagination = false,
+  // 🚀 NOUVEAU: Pagination externe
+  pagination,
+  onPageChange
 }: TiersListProps) {
   const { getTypeBadge, getStatusBadge } = useTierUtils();
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Calcul de la pagination
-  const totalPages = Math.ceil(tiers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  // 🎯 NOUVELLE LOGIQUE: Utiliser pagination interne SEULEMENT si pas de pagination externe
+  const shouldUsePagination = !disableInternalPagination;
+  
+  // Calcul de la pagination (seulement si pagination interne activée)
+  const totalPages = shouldUsePagination ? Math.ceil(tiers.length / itemsPerPage) : 1;
+  const startIndex = shouldUsePagination ? (currentPage - 1) * itemsPerPage : 0;
+  const endIndex = shouldUsePagination ? startIndex + itemsPerPage : tiers.length;
+  
   const currentTiers = useMemo(() => 
-    tiers.slice(startIndex, endIndex),
-    [tiers, startIndex, endIndex]
+    shouldUsePagination ? tiers.slice(startIndex, endIndex) : tiers,
+    [tiers, startIndex, endIndex, shouldUsePagination]
   );
 
-  // Réinitialiser la page courante si elle dépasse le nombre de pages
+  // Réinitialiser la page courante si elle dépasse le nombre de pages (seulement si pagination interne)
   useMemo(() => {
-    if (currentPage > totalPages && totalPages > 0) {
+    if (shouldUsePagination && currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, shouldUsePagination]);
 
   // Gestionnaire sécurisé pour les actions
   const handleAction = (
@@ -96,7 +110,7 @@ export function TiersList({
     }
   };
 
-  // Génération des liens de pagination
+  // Génération des liens de pagination interne
   const generatePaginationItems = () => {
     const items = [];
     const maxVisiblePages = 5;
@@ -113,6 +127,48 @@ export function TiersList({
       } else {
         items.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
       }
+    }
+    
+    return items;
+  };
+
+  // 🚀 NOUVEAU: Génération des liens pour la pagination externe  
+  const generateExternalPaginationItems = () => {
+    if (!pagination) return [];
+    
+    const items: (number | string)[] = [];
+    const currentPage = pagination.current_page;
+    const totalPages = pagination.num_pages;
+    
+    // Toujours afficher la première page
+    if (totalPages > 0) {
+      items.push(1);
+    }
+    
+    // Pages autour de la page courante
+    let start = Math.max(2, currentPage - 1);
+    let end = Math.min(totalPages - 1, currentPage + 1);
+    
+    // Ajouter des ellipses si nécessaire
+    if (start > 2) {
+      items.push('...');
+    }
+    
+    // Pages du milieu
+    for (let i = start; i <= end; i++) {
+      if (i > 1 && i < totalPages) {
+        items.push(i);
+      }
+    }
+    
+    // Ajouter des ellipses si nécessaire
+    if (end < totalPages - 1) {
+      items.push('...');
+    }
+    
+    // Toujours afficher la dernière page (si différente de la première)
+    if (totalPages > 1) {
+      items.push(totalPages);
     }
     
     return items;
@@ -233,8 +289,54 @@ export function TiersList({
       </Table>
     </div>
 
-    {/* Pagination */}
-    {totalPages > 1 && (
+    {/* 🚀 PAGINATION EXTERNE (nouvelle logique) */}
+    {pagination && pagination.num_pages > 1 && (
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="text-sm text-muted-foreground">
+          Affichage de {((pagination.current_page - 1) * pagination.page_size) + 1} à {Math.min(pagination.current_page * pagination.page_size, pagination.count)} sur {pagination.count} tiers
+        </div>
+        <Pagination>
+          <PaginationContent>
+            {pagination.has_previous && (
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => onPageChange && onPageChange(pagination.previous_page!)}
+                  className="cursor-pointer"
+                />
+              </PaginationItem>
+            )}
+            
+            {generateExternalPaginationItems().map((item, index) => (
+              <PaginationItem key={index}>
+                {item === '...' ? (
+                  <PaginationEllipsis />
+                ) : (
+                  <PaginationLink
+                    onClick={() => onPageChange && onPageChange(item as number)}
+                    isActive={pagination.current_page === item}
+                    className="cursor-pointer"
+                  >
+                    {item}
+                  </PaginationLink>
+                )}
+              </PaginationItem>
+            ))}
+            
+            {pagination.has_next && (
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => onPageChange && onPageChange(pagination.next_page!)}
+                  className="cursor-pointer"
+                />
+              </PaginationItem>
+            )}
+          </PaginationContent>
+        </Pagination>
+      </div>
+    )}
+
+    {/* Pagination interne (legacy, seulement si pagination interne activée) */}
+    {shouldUsePagination && totalPages > 1 && !pagination && (
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="text-sm text-muted-foreground">
           Affichage de {startIndex + 1} à {Math.min(endIndex, tiers.length)} sur {tiers.length} résultats

@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { QuoteItem } from "@/lib/types/quote";
+import { EditorQuoteItem } from "@/lib/api/quotes";
 import { formatCurrency } from "@/lib/utils";
 import { Work, Material, Labor } from "@/lib/types/workLibrary";
 import { libraryApi } from "@/lib/api/library";
@@ -28,8 +28,8 @@ import { toast } from "sonner";
 interface QuoteItemFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (item: QuoteItem) => void;
-  item?: Partial<QuoteItem>;
+  onSubmit: (item: EditorQuoteItem) => void;
+  item?: Partial<EditorQuoteItem>;
   isEditing?: boolean;
 }
 
@@ -40,13 +40,13 @@ export function QuoteItemForm({
   item,
   isEditing = false,
 }: QuoteItemFormProps) {
-  const [formData, setFormData] = useState<Partial<QuoteItem>>({
+  const [formData, setFormData] = useState<Partial<EditorQuoteItem>>({
     designation: "",
     description: "",
     unit: "unité",
     quantity: 1,
     unitPrice: 0,
-    vatRate: 20,
+    vat_rate: "20",
     discount: 0,
     type: "product",
     margin: 20,
@@ -96,7 +96,7 @@ export function QuoteItemForm({
           unit: "unité",
           quantity: 1,
           unitPrice: 0,
-          vatRate: 20,
+          vat_rate: "20",
           discount: 0,
           type: "product",
           margin: 20,
@@ -109,34 +109,49 @@ export function QuoteItemForm({
     }
   }, [open, item, isEditing]);
   
-  // Calculer les totaux lorsque les valeurs changent
+  // Calculer les totaux lorsque les valeurs changent (avec protection NaN)
   useEffect(() => {
-    if (formData.quantity !== undefined && formData.unitPrice !== undefined && formData.vatRate !== undefined) {
-      const quantity = formData.quantity;
-      const unitPrice = formData.unitPrice;
-      const vatRate = formData.vatRate;
-      const discount = formData.discount || 0;
+    if (formData.quantity !== undefined && formData.unitPrice !== undefined && formData.vat_rate !== undefined) {
+      const quantity = Number(formData.quantity) || 0;
+      const unitPrice = Number(formData.unitPrice) || 0;
+      const vatRate = parseFloat(formData.vat_rate) || 0;
+      const discount = Number(formData.discount) || 0;
+      
+      // 🛡️ VÉRIFICATION : S'assurer qu'aucune valeur n'est NaN
+      if (isNaN(quantity) || isNaN(unitPrice) || isNaN(vatRate) || isNaN(discount)) {
+        console.warn('🚨 Valeur NaN détectée dans les calculs, utilisation de 0');
+        return;
+      }
       
       // Calculer le prix après remise
       const discountedUnitPrice = unitPrice * (1 - discount / 100);
       
       // Calculer les totaux
-      const totalHT = quantity * discountedUnitPrice;
-      const totalTTC = totalHT * (1 + vatRate / 100);
+      const totalHt = quantity * discountedUnitPrice;
+      const totalTtc = totalHt * (1 + vatRate / 100);
       
-      setFormData(prev => ({
-        ...prev,
-        totalHT,
-        totalTTC,
-      }));
+      // ✅ VÉRIFICATION FINALE avant sauvegarde
+      if (!isNaN(totalHt) && !isNaN(totalTtc)) {
+        setFormData(prev => ({
+          ...prev,
+          totalHt,
+          totalTtc,
+        }));
+      }
     }
-  }, [formData.quantity, formData.unitPrice, formData.vatRate, formData.discount]);
+  }, [formData.quantity, formData.unitPrice, formData.vat_rate, formData.discount]);
   
-  // Gérer les changements de champs
+  // Gérer les changements de champs avec protection contre NaN
   const handleInputChange = (field: string, value: string | number) => {
+    // 🛡️ PROTECTION CONTRE NaN pour les champs numériques
+    let safeValue = value;
+    if (typeof value === 'number' && isNaN(value)) {
+      safeValue = 0; // Valeur par défaut sécurisée au lieu de NaN
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [field]: value,
+      [field]: safeValue,
     }));
     setErrors(prev => ({ ...prev, [field]: "" }));
   };
@@ -157,8 +172,8 @@ export function QuoteItemForm({
       newErrors.unitPrice = "Le prix unitaire est requis";
     }
     
-    if (formData.vatRate === undefined) {
-      newErrors.vatRate = "Le taux de TVA est requis";
+    if (formData.vat_rate === undefined) {
+      newErrors.vat_rate = "Le taux de TVA est requis";
     }
     
     if (formData.discount !== undefined && (formData.discount < 0 || formData.discount > 100)) {
@@ -176,7 +191,7 @@ export function QuoteItemForm({
   // Soumettre le formulaire
   const handleSubmit = () => {
     if (validateForm()) {
-      const newItem: QuoteItem = {
+      const newItem: EditorQuoteItem = {
         id: item?.id || `item-${Date.now()}`,
         type: formData.type as "product" | "service" | "work" | "chapter" | "section",
         position: item?.position || 0,
@@ -185,13 +200,13 @@ export function QuoteItemForm({
         unit: formData.unit || "unité",
         quantity: formData.quantity || 0,
         unitPrice: formData.unitPrice || 0,
-        discount: formData.discount,
-        vatRate: formData.vatRate || 20,
+        discount: formData.discount || 0,
+        vat_rate: formData.vat_rate || "20",
         margin: formData.margin,
-        totalHT: formData.totalHT || 0,
-        totalTTC: formData.totalTTC || 0,
-        workId: formData.workId,
-        parentId: formData.parentId,
+        totalHt: formData.totalHt || 0,
+        totalTtc: formData.totalTtc || 0,
+        work_id: formData.work_id,
+        parent: formData.parent,
       };
       
       onSubmit(newItem);
@@ -317,9 +332,9 @@ export function QuoteItemForm({
                         {libraryItems.length === 0 ? "Aucun élément dans la bibliothèque" : "Aucun résultat trouvé"}
                       </p>
                     ) : (
-                      getFilteredLibraryItems().map((item) => (
+                      getFilteredLibraryItems().map((item, index) => (
                         <div
-                          key={item.id}
+                          key={`${getItemType(item).toLowerCase()}-${item.id}-${index}`}
                           className="flex items-center justify-between p-3 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
                           onClick={() => handleSelectLibraryItem(item)}
                         >
@@ -435,7 +450,7 @@ export function QuoteItemForm({
                 min="0.01"
                 step="0.01"
                 value={formData.quantity}
-                onChange={(e) => handleInputChange("quantity", parseFloat(e.target.value))}
+                onChange={(e) => handleInputChange("quantity", e.target.value === "" ? 0 : parseFloat(e.target.value))}
                 className={`benaya-input ${errors.quantity ? "border-red-500" : ""}`}
               />
               {errors.quantity && (
@@ -478,7 +493,7 @@ export function QuoteItemForm({
                 min="0"
                 step="0.01"
                 value={formData.unitPrice}
-                onChange={(e) => handleInputChange("unitPrice", parseFloat(e.target.value))}
+                onChange={(e) => handleInputChange("unitPrice", e.target.value === "" ? 0 : parseFloat(e.target.value))}
                 className={`benaya-input ${errors.unitPrice ? "border-red-500" : ""}`}
               />
               {errors.unitPrice && (
@@ -490,14 +505,14 @@ export function QuoteItemForm({
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="vatRate" className={errors.vatRate ? "text-red-500" : ""}>
+              <Label htmlFor="vat_rate" className={errors.vat_rate ? "text-red-500" : ""}>
                 TVA (%) <span className="text-red-500">*</span>
               </Label>
               <Select 
-                value={formData.vatRate?.toString()} 
-                onValueChange={(value) => handleInputChange("vatRate", parseInt(value))}
+                value={formData.vat_rate?.toString()} 
+                onValueChange={(value) => handleInputChange("vat_rate", value)}
               >
-                <SelectTrigger className={`benaya-input ${errors.vatRate ? "border-red-500" : ""}`}>
+                <SelectTrigger className={`benaya-input ${errors.vat_rate ? "border-red-500" : ""}`}>
                   <SelectValue placeholder="Taux de TVA" />
                 </SelectTrigger>
                 <SelectContent>
@@ -508,10 +523,10 @@ export function QuoteItemForm({
                   <SelectItem value="20">20%</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.vatRate && (
+              {errors.vat_rate && (
                 <p className="text-xs text-red-500 mt-1 flex items-center">
                   <AlertCircle className="w-3 h-3 mr-1" />
-                  {errors.vatRate}
+                  {errors.vat_rate}
                 </p>
               )}
             </div>
@@ -530,7 +545,7 @@ export function QuoteItemForm({
                 max="100"
                 step="0.01"
                 value={formData.discount || 0}
-                onChange={(e) => handleInputChange("discount", parseFloat(e.target.value))}
+                onChange={(e) => handleInputChange("discount", e.target.value === "" ? 0 : parseFloat(e.target.value))}
                 className={`benaya-input ${errors.discount ? "border-red-500" : ""}`}
               />
               {errors.discount && (
@@ -552,7 +567,7 @@ export function QuoteItemForm({
                 max="100"
                 step="0.01"
                 value={formData.margin || 0}
-                onChange={(e) => handleInputChange("margin", parseFloat(e.target.value))}
+                onChange={(e) => handleInputChange("margin", e.target.value === "" ? 0 : parseFloat(e.target.value))}
                 className={`benaya-input ${errors.margin ? "border-red-500" : ""}`}
               />
               {errors.margin && (
@@ -568,7 +583,7 @@ export function QuoteItemForm({
           <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg space-y-2">
             <div className="flex justify-between">
               <span className="text-neutral-600 dark:text-neutral-400">Total HT:</span>
-              <span className="font-medium">{formatCurrency(formData.totalHT || 0)} MAD</span>
+              <span className="font-medium">{formatCurrency(formData.totalHt || 0)} MAD</span>
             </div>
             {formData.discount && formData.discount > 0 && (
               <div className="flex justify-between text-red-600 dark:text-red-400">
@@ -577,12 +592,12 @@ export function QuoteItemForm({
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-neutral-600 dark:text-neutral-400">TVA ({formData.vatRate}%):</span>
-              <span className="font-medium">{formatCurrency((formData.totalHT || 0) * ((formData.vatRate || 0) / 100))} MAD</span>
+              <span className="text-neutral-600 dark:text-neutral-400">TVA ({formData.vat_rate}%):</span>
+              <span className="font-medium">{formatCurrency((formData.totalHt || 0) * ((parseFloat(formData.vat_rate || "0")) / 100))} MAD</span>
             </div>
             <div className="flex justify-between font-semibold border-t border-neutral-200 dark:border-neutral-700 pt-2">
               <span>Total TTC:</span>
-              <span>{formatCurrency(formData.totalTTC || 0)} MAD</span>
+              <span>{formatCurrency(formData.totalTtc || 0)} MAD</span>
             </div>
           </div>
         </div>

@@ -18,13 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { QuoteItem } from "@/lib/types/quote";
+import { EditorQuoteItem } from "@/lib/api/quotes";
 
 interface SectionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (item: QuoteItem) => void;
-  item?: Partial<QuoteItem>;
+  onSubmit: (item: EditorQuoteItem) => void;
+  item?: Partial<EditorQuoteItem>;
   isEditing?: boolean;
 }
 
@@ -35,7 +35,7 @@ export function SectionForm({
   item,
   isEditing = false,
 }: SectionFormProps) {
-  const [formData, setFormData] = useState<Partial<QuoteItem>>({
+  const [formData, setFormData] = useState<Partial<EditorQuoteItem>>({
     designation: "",
     type: "chapter",
   });
@@ -83,17 +83,18 @@ export function SectionForm({
   // Soumettre le formulaire
   const handleSubmit = () => {
     if (validateForm()) {
-      const newItem: QuoteItem = {
+      const newItem: EditorQuoteItem = {
         id: item?.id || `section-${Date.now()}`,
         type: formData.type as "chapter" | "section",
         position: item?.position || 0,
         designation: formData.designation || "",
         quantity: 1,
         unitPrice: 0,
-        vatRate: 20,
-        totalHT: 0,
-        totalTTC: 0,
-        parentId: formData.parentId,
+        vat_rate: "20",
+        discount: 0,
+        totalHt: 0,
+        totalTtc: 0,
+        parent: formData.parent,
       };
       
       onSubmit(newItem);

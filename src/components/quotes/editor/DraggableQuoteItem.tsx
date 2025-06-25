@@ -2,13 +2,13 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { QuoteItem } from "@/lib/types/quote";
+import { EditorQuoteItem } from "@/lib/api/quotes";
 import { formatCurrency } from "@/lib/utils";
 
 interface DraggableQuoteItemProps {
-  item: QuoteItem;
+  item: EditorQuoteItem;
   onRemove: (id: string) => void;
-  onEdit?: (item: QuoteItem) => void;
+  onEdit?: (item: EditorQuoteItem) => void;
   indentLevel?: number;
   showTaxIncluded?: boolean;
 }
@@ -76,20 +76,20 @@ export function DraggableQuoteItem({
             {formatCurrency(Math.abs(item.unitPrice))} MAD
           </td>
           <td className="py-3 px-4 text-right border-b border-neutral-200 dark:border-neutral-700">
-            {item.vatRate}%
+            {item.vat_rate}%
           </td>
           <td className="py-3 px-4 text-right border-b border-neutral-200 dark:border-neutral-700">
             {item.discount ? `${item.discount}%` : "-"}
           </td>
           <td className="py-3 px-4 text-right border-b border-neutral-200 dark:border-neutral-700">
             <span className={isDiscount ? "text-red-600 dark:text-red-400 font-medium" : "font-medium"}>
-              {formatCurrency(Math.abs(item.totalHT))} {isDiscount && "-"} MAD
+              {formatCurrency(Math.abs(item.totalHt))} {isDiscount && "-"} MAD
             </span>
           </td>
           {showTaxIncluded && (
             <td className="py-3 px-4 text-right font-semibold border-b border-neutral-200 dark:border-neutral-700">
               <span className={isDiscount ? "text-red-600 dark:text-red-400" : ""}>
-                {formatCurrency(Math.abs(item.totalTTC))} {isDiscount && "-"} MAD
+                {formatCurrency(Math.abs(item.totalTtc))} {isDiscount && "-"} MAD
               </span>
             </td>
           )}

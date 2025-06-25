@@ -7,8 +7,6 @@ export { QuoteAlerts } from './QuoteAlerts';
 
 // Composants de l'éditeur (déjà existants)
 export { QuotePreview } from './QuotePreview';
-export { QuotesStats } from './QuotesStats';
-export { QuotesFilters } from './QuotesFilters';
 
 // Composants d'édition (déjà existants dans /editor)
 export * from './editor';

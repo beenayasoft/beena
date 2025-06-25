@@ -14,7 +14,8 @@ import {
   TierParticulierEditDialog
 } from "@/components/tiers";
 import { Tier } from "@/components/tiers/types";
-import { tiersApi } from "@/lib/api/tiers";
+import { tiersApi, TiersFilters, PaginationInfo, TiersGlobalStats } from "@/lib/api/tiers";
+import { PerformanceMonitor } from "@/components/common/PerformanceMonitor";
 
 export default function Tiers() {
   const navigate = useNavigate();
@@ -31,59 +32,163 @@ export default function Tiers() {
   const [editEntrepriseOpen, setEditEntrepriseOpen] = useState(false);
   const [editParticulierOpen, setEditParticulierOpen] = useState(false);
 
+  // 🚀 NOUVEAUX ÉTATS POUR LA PAGINATION OPTIMISÉE
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    count: 0,
+    num_pages: 0,
+    current_page: 1,
+    page_size: 10,
+    has_next: false,
+    has_previous: false,
+    next_page: null,
+    previous_page: null
+  });
+
+  // 📊 NOUVEL ÉTAT POUR LES VRAIES STATS GLOBALES
+  const [globalStats, setGlobalStats] = useState<TiersGlobalStats>({
+    total: 0,
+    client: 0,
+    fournisseur: 0,
+    prospect: 0,
+    sous_traitant: 0
+  });
+
   const { countTiersByType, filterTiers, generateTabs } = useTierUtils();
 
-  // Compter les tiers par type
-  const countByType = countTiersByType(tiers);
+  // 🎯 NOUVELLE LOGIQUE: Utiliser les vraies stats globales au lieu des stats locales
+  // Convertir les stats globales au format attendu par les composants
+  const countByType = {
+    tous: globalStats.total,
+    clients: globalStats.client,
+    fournisseurs: globalStats.fournisseur,
+    prospects: globalStats.prospect,
+    sous_traitants: globalStats.sous_traitant
+  };
 
-  // Générer les onglets avec les compteurs
+  // Générer les onglets avec les compteurs (maintenant basés sur les vraies stats)
   const tabs = generateTabs(countByType);
 
-  // Filtrer les tiers en fonction de l'onglet actif et de la recherche
-  const filteredTiers = filterTiers(tiers, activeTab, searchQuery);
+  // 🚀 Les tiers sont déjà filtrés côté backend - pas besoin de filtrage frontend
+  const displayedTiers = tiers; // Directement les tiers reçus de l'API
 
-  // Fonction pour charger les tiers depuis l'API
-  const loadTiers = async () => {
+  // 🔄 Gestionnaires pour les changements qui nécessitent un rechargement
+  const handleTabChange = (newTab: string) => {
+    console.log("🔄 Changement d'onglet:", newTab);
+    setActiveTab(newTab);
+    setCurrentPage(1); // Remettre à la première page
+    loadTiers(1, searchQuery, newTab); // Recharger avec le nouveau filtre
+    // Note: Les stats ne changent pas selon l'onglet (elles montrent le total global)
+  };
+
+  const handleSearchChange = (newSearch: string) => {
+    console.log("🔍 Changement de recherche:", newSearch);
+    setSearchQuery(newSearch);
+    setCurrentPage(1); // Remettre à la première page
+    // Le débounce est géré par useEffect, pas ici
+  };
+
+  const handlePageChange = (newPage: number) => {
+    console.log("📄 Changement de page:", newPage);
+    setCurrentPage(newPage);
+    loadTiers(newPage, searchQuery, activeTab);
+    // Pas besoin de recharger les stats pour un changement de page
+  };
+
+  // 🚀 FONCTION OPTIMISÉE pour charger les tiers avec pagination
+  const loadTiers = async (page: number = currentPage, search: string = searchQuery, type: string = activeTab) => {
+    const startTime = performance.now(); // 📊 DÉBUT MESURE
     try {
       setLoading(true);
-      console.log("Tiers.tsx: Chargement des tiers...");
+      console.log("🚀 Tiers.tsx: Chargement OPTIMISÉ des tiers", { page, search, type, pageSize });
       
-      // Utiliser l'endpoint spécialement conçu pour le frontend
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/tiers/tiers/frontend_format/`, 
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            'Content-Type': 'application/json',
-          }
-        }
-      );
+      // Construire les filtres pour l'API
+      const filters: TiersFilters = {
+        page: page,
+        page_size: pageSize,
+      };
       
-      const data = await response.json();
-      console.log("Tiers.tsx: Données reçues de l'API frontend_format", data);
-      
-      // Les données sont peut-être dans results si c'est paginé
-      const tiersData = data.results || data;
-      
-      if (!tiersData || !Array.isArray(tiersData) || tiersData.length === 0) {
-        console.log("Tiers.tsx: Aucun tier trouvé");
-        setTiers([]);
-        return;
+      // Ajouter le filtre de type seulement si ce n'est pas "tous"
+      if (type && type !== "tous") {
+        filters.type = type;
       }
       
-      // Adapter les données pour la nouvelle structure avec relation -> type
-      // Et s'assurer que le statut est conforme au type attendu
-      const adaptedTiers = tiersData.map((tier: any) => ({
-        ...tier,
-        type: tier.relation ? [tier.relation] : tier.type || [], // Convertir relation string vers type array
-        status: tier.status === 'inactive' ? 'inactive' : 'active' // S'assurer que le statut est conforme
-      })) as Tier[];
+      // Ajouter la recherche si présente
+      if (search && search.trim()) {
+        filters.search = search.trim();
+      }
       
-      setTiers(adaptedTiers);
+      // Utiliser notre nouvelle API optimisée
+      const response = await tiersApi.getTiers(filters);
+      console.log("📊 Tiers.tsx: Réponse paginée reçue", response);
+      
+      // Mettre à jour les données et la pagination
+      setTiers(response.results);
+      setPagination(response.pagination);
+      setCurrentPage(response.pagination.current_page);
+      setError(null);
+      
+      const endTime = performance.now(); // 📊 FIN MESURE
+      const loadTime = endTime - startTime;
+      console.log(`✅ ${response.results.length} tiers chargés sur ${response.pagination.count} total`);
+      console.log(`⚡ PERFORMANCE: Chargement terminé en ${loadTime.toFixed(2)}ms`);
+    } catch (err) {
+      const endTime = performance.now(); // 📊 FIN MESURE (même en cas d'erreur)
+      const loadTime = endTime - startTime;
+      setError("Erreur lors du chargement des tiers");
+      console.error("🚨 Tiers.tsx: Erreur critique", err);
+      console.log(`❌ PERFORMANCE: Échec après ${loadTime.toFixed(2)}ms`);
+      // En cas d'erreur, réinitialiser
+      setTiers([]);
+      setPagination({
+        count: 0,
+        num_pages: 0,
+        current_page: 1,
+        page_size: pageSize,
+        has_next: false,
+        has_previous: false,
+        next_page: null,
+        previous_page: null
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 📊 FONCTION pour charger les vraies stats globales
+  const loadGlobalStats = async (search: string = searchQuery) => {
+    const startTime = performance.now(); // 📊 DÉBUT MESURE STATS
+    try {
+      console.log("📊 Chargement des stats globales", { search });
+      const stats = await tiersApi.getStats(search);
+      setGlobalStats(stats);
+      
+      const endTime = performance.now(); // 📊 FIN MESURE STATS
+      const loadTime = endTime - startTime;
+      console.log("✅ Stats globales chargées:", stats);
+      console.log(`⚡ PERFORMANCE STATS: Chargées en ${loadTime.toFixed(2)}ms`);
+    } catch (err) {
+      const endTime = performance.now(); // 📊 FIN MESURE STATS (erreur)
+      const loadTime = endTime - startTime;
+      console.error("🚨 Erreur lors du chargement des stats globales:", err);
+      console.log(`❌ PERFORMANCE STATS: Échec après ${loadTime.toFixed(2)}ms`);
+      // Garder les stats précédentes en cas d'erreur
+    }
+  };
+
+  // 🔄 MÉTHODE LEGACY pour compatibilité temporaire (ne charge que la première page)
+  const loadTiersLegacy = async () => {
+    try {
+      setLoading(true);
+      console.log("⚠️ Utilisation de la méthode legacy");
+      
+      const response = await tiersApi.getTiersLegacy();
+      setTiers(response);
       setError(null);
     } catch (err) {
-      setError("Erreur lors du chargement des tiers");
-      console.error("Tiers.tsx: Erreur critique", err);
+      setError("Erreur lors du chargement des tiers (legacy)");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -95,10 +200,22 @@ export default function Tiers() {
     // Il ne fait rien directement, mais force React à re-rendre le composant
   }, [forceUpdate]);
 
-  // Charger les tiers au montage du composant
+  // 🚀 Charger les tiers ET les stats au montage du composant
   useEffect(() => {
-    loadTiers();
+    loadTiers(1, "", "tous"); // Charger la première page, sans recherche, tous les types
+    loadGlobalStats(""); // Charger les stats globales
   }, []);
+
+  // 🔄 Débounce pour la recherche (éviter trop d'appels API)
+  useEffect(() => {
+    if (searchQuery !== undefined) { // Vérifier !== undefined pour inclure les chaînes vides
+      const timeoutId = setTimeout(() => {
+        loadTiers(1, searchQuery, activeTab);
+        loadGlobalStats(searchQuery); // Recharger les stats avec la recherche
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery]);
 
   // Gérer la fermeture de la modale d'édition
   const handleDialogClose = (open: boolean) => {
@@ -223,7 +340,7 @@ export default function Tiers() {
       {/* Filters */}
       <TiersSearch 
         searchQuery={searchQuery} 
-        onSearchChange={setSearchQuery} 
+        onSearchChange={handleSearchChange} 
       />
 
       {/* Main Content */}
@@ -232,17 +349,51 @@ export default function Tiers() {
         <TiersTabs 
           tabs={tabs} 
           activeTab={activeTab} 
-          onTabChange={setActiveTab} 
+          onTabChange={handleTabChange} 
         />
+
+        {/* 📊 Informations de pagination */}
+        {pagination.count > 0 && (
+          <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <div>
+                Affichage de {((currentPage - 1) * pageSize) + 1} à {Math.min(currentPage * pageSize, pagination.count)} sur {pagination.count} tiers
+              </div>
+              <div className="flex items-center gap-4">
+                <div>Page {currentPage} sur {pagination.num_pages}</div>
+                {/* Contrôles de pagination */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!pagination.has_previous}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                  >
+                    Précédent
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!pagination.has_next}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         <TiersList 
-          tiers={filteredTiers}
+          tiers={displayedTiers}
           onView={handleView}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onCall={handleCall}
           onEmail={handleEmail}
+          disableInternalPagination={true}
         />
       </div>
 
@@ -282,6 +433,9 @@ export default function Tiers() {
         onConfirm={confirmDelete}
         tier={tierToDelete}
       />
+
+      {/* 📊 Performance Monitor */}
+      <PerformanceMonitor enabled={true} position="bottom-right" />
     </div>
   );
 } 

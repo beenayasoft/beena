@@ -38,29 +38,25 @@ export interface QuoteStatus {
 export interface QuoteItem {
   id: string;
   quote: string;
-  type: 'chapter' | 'section' | 'work' | 'product' | 'service' | 'discount';
-  type_display: string;
-  parent?: string;
-  position: number;
-  reference?: string;
   designation: string;
   description?: string;
-  unit: string;
   quantity: number;
+  unit: string;
   unit_price: number;
-  discount_percentage: number;
-  tva_rate: string;
-  tva_rate_display: string;
-  margin: number;
+  discount: number;
+  vat_rate: string;
+  vat_rate_display: string;
   total_ht: number;
   total_ttc: number;
+  position: number;
+  type: 'product' | 'service' | 'work' | 'chapter' | 'section' | 'discount'; // ✅ Types Django unifiés
+  parent?: string;
+  reference?: string;
+  margin?: number;
   work_id?: string;
-  created_at: string;
-  updated_at: string;
-  children?: QuoteItem[];
 }
 
-// Types pour l'éditeur avancé
+// Types pour l'éditeur avancé - ALIGNÉS AVEC LE BACKEND DJANGO
 export interface EditorQuoteItem {
   id?: string;
   designation: string;
@@ -68,28 +64,28 @@ export interface EditorQuoteItem {
   quantity: number;
   unit: string;
   unitPrice: number;
-  discountPercentage: number;
-  tvaRate: string;
-  type: 'chapter' | 'section' | 'work' | 'product' | 'service' | 'discount';
+  discount: number;                    // ✅ CORRIGÉ : discount (pas discountPercentage)
+  vat_rate: string;                    // ✅ CORRIGÉ : vat_rate string (pas tvaRate)
+  type: 'product' | 'service' | 'work' | 'chapter' | 'section' | 'discount'; // ✅ Types Django exactes
   reference?: string;
   position?: number;
   parent?: string;
   totalHt?: number;
   totalTtc?: number;
+  margin?: number;
+  work_id?: string;
 }
 
 export interface BulkQuoteData {
   quote: {
-    tier?: string;
-    client_name?: string;
-    client_address?: string;
-    project_name?: string;
-    issue_date?: string;
-    expiry_date?: string;
-    conditions?: string;
-    notes?: string;
-    status?: string;
-    number?: string;
+    tier: string;                    // ✅ OBLIGATOIRE - ForeignKey vers Tiers
+    project_name?: string;           // ✅ Nom du projet
+    project_address?: string;        // ✅ AJOUTÉ - Adresse du projet (supporté par Django)
+    validity_period?: number;        // ✅ AJOUTÉ - Durée de validité en jours
+    notes?: string;                  // ✅ Notes du devis
+    conditions?: string;             // ✅ Conditions générales (maps to terms_and_conditions)
+    // Champs auto-générés par Django (à ne pas envoyer)
+    // client_name, client_address, issue_date, expiry_date, number, status
   };
   items: EditorQuoteItem[];
 }
@@ -169,6 +165,26 @@ export interface QuoteFilters {
   max_amount?: number;
   search?: string;
   ordering?: string;
+  // 🚀 NOUVEAUX: Paramètres de pagination
+  page?: number;
+  page_size?: number;
+}
+
+// 📊 Types pour la pagination (similaires aux tiers)
+export interface QuotesPaginationInfo {
+  count: number;
+  num_pages: number;
+  current_page: number;
+  page_size: number;
+  has_next: boolean;
+  has_previous: boolean;
+  next_page: number | null;
+  previous_page: number | null;
+}
+
+export interface QuotesPaginatedResponse {
+  results: Quote[];
+  pagination: QuotesPaginationInfo;
 }
 
 export interface CreateQuoteData {
@@ -182,41 +198,60 @@ export interface CreateQuoteData {
 
 export interface CreateQuoteItemData {
   quote: string;
-  type: string;
-  parent?: string;
-  position: number;
-  reference?: string;
   designation: string;
   description?: string;
-  unit: string;
   quantity: number;
+  unit: string;
   unit_price: number;
-  discount_percentage?: number;
-  tva_rate: string;
+  discount?: number;
+  vat_rate: string;
+  type: 'product' | 'service' | 'work' | 'chapter' | 'section' | 'discount'; // ✅ Types Django unifiés
+  parent?: string;
+  reference?: string;
   margin?: number;
   work_id?: string;
+  position?: number;  // ✅ AJOUTÉ pour éliminer l'erreur
 }
 
 // API Devis
 export const quotesApi = {
   // ==================== DEVIS ====================
   
-  // Récupérer toutes les statistiques des devis
-  getStats: async (): Promise<QuoteStats> => {
+  // 📊 Récupérer les statistiques globales des devis - OPTIMISÉ
+  getStats: async (search?: string): Promise<QuoteStats> => {
     try {
-      console.log("API: Récupération des statistiques des devis");
-      const response = await apiClient.get('/quotes/stats/');
-      console.log("Réponse stats devis:", response.data);
+      console.log("📊 API: Récupération des statistiques globales des devis");
+      
+      const params = new URLSearchParams();
+      if (search && search.trim()) {
+        params.append('search', search.trim());
+      }
+      
+      const response = await apiClient.get(`/quotes/stats/?${params.toString()}`);
+      console.log("📊 Stats devis reçues:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Erreur lors du chargement des stats devis:", error);
-      throw error;
+      console.error("🚨 Erreur lors du chargement des stats devis:", error);
+      // Retourner des stats vides en cas d'erreur
+      return {
+        total: 0,
+        draft: 0,
+        sent: 0,
+        accepted: 0,
+        rejected: 0,
+        expired: 0,
+        cancelled: 0,
+        total_amount: 0,
+        acceptance_rate: 0
+      };
     }
   },
 
-  // Récupérer tous les devis avec filtres
-  getQuotes: async (filters?: QuoteFilters): Promise<Quote[]> => {
+  // 🚀 Récupérer les devis AVEC PAGINATION OPTIMISÉE
+  getQuotes: async (filters?: QuoteFilters): Promise<QuotesPaginatedResponse> => {
     try {
+      console.log("🚀 API OPTIMISÉE: Récupération paginée des devis", filters);
+      
       const params = new URLSearchParams();
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
@@ -227,14 +262,51 @@ export const quotesApi = {
       }
       
       const response = await apiClient.get(`/quotes/?${params.toString()}`);
+      console.log("📊 Réponse API paginée devis:", response.data);
       
-      // Gérer la pagination si présente
-      if (response.data.results) {
-        return response.data.results;
+      // Vérifier si la réponse est paginée ou directe (rétrocompatibilité)
+      const isPaginated = response.data.pagination && response.data.results;
+      
+      if (isPaginated) {
+        // 🎯 NOUVELLE STRUCTURE PAGINÉE
+        console.log("✅ Structure paginée détectée");
+        return {
+          results: response.data.results,
+          pagination: response.data.pagination
+        };
+      } else {
+        // 🔄 ANCIENNE STRUCTURE (fallback) - à supprimer après migration
+        console.warn("⚠️ Ancienne structure détectée - utilisant le fallback");
+        const quotesData = Array.isArray(response.data) ? response.data : 
+                          response.data.results ? response.data.results : [];
+        
+        return {
+          results: quotesData,
+          pagination: {
+            count: quotesData.length,
+            num_pages: 1,
+            current_page: 1,
+            page_size: quotesData.length,
+            has_next: false,
+            has_previous: false,
+            next_page: null,
+            previous_page: null
+          }
+        };
       }
-      return response.data;
     } catch (error) {
-      console.error("Erreur lors du chargement des devis:", error);
+      console.error("🚨 Erreur lors du chargement des devis:", error);
+      throw error;
+    }
+  },
+
+  // MÉTHODE LEGACY - garde pour compatibilité temporaire
+  getQuotesLegacy: async (filters?: QuoteFilters): Promise<Quote[]> => {
+    try {
+      const response = await quotesApi.getQuotes(filters);
+      return response.results;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des devis (legacy):', error);
       throw error;
     }
   },
@@ -287,12 +359,38 @@ export const quotesApi = {
   // Création complète d'un devis avec tous ses éléments en une seule transaction
   bulkCreateQuote: async (quoteData: BulkQuoteData): Promise<QuoteDetail> => {
     try {
-      console.log("API: Création bulk d'un devis complet", quoteData);
+      console.log("🚀 === API BULK CREATE - DÉBUT ===");
+      console.log("🚀 URL:", '/quotes/bulk_create/');
+      console.log("🚀 Method:", 'POST');
+      console.log("🚀 Payload complet:", JSON.stringify(quoteData, null, 2));
+      console.log("🚀 Headers:", {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || 'NO_TOKEN'}`
+      });
+      console.log("🚀 === ENVOI REQUÊTE ===");
+      
       const response = await apiClient.post('/quotes/bulk_create/', quoteData);
-      console.log("Réponse création bulk:", response.data);
+      
+      console.log("✅ === RÉPONSE BULK CREATE ===");
+      console.log("✅ Status:", response.status);
+      console.log("✅ Status Text:", response.statusText);
+      console.log("✅ Headers réponse:", response.headers);
+      console.log("✅ Données réponse:", JSON.stringify(response.data, null, 2));
+      console.log("✅ === FIN RÉPONSE ===");
+      
       return response.data.quote;
-    } catch (error) {
-      console.error("Erreur lors de la création bulk du devis:", error);
+    } catch (error: any) {
+      console.error("🚨 === ERREUR BULK CREATE ===");
+      console.error("🚨 Error object:", error);
+      console.error("🚨 Request URL:", error.config?.url);
+      console.error("🚨 Request method:", error.config?.method);
+      console.error("🚨 Request data:", error.config?.data);
+      console.error("🚨 Response status:", error.response?.status);
+      console.error("🚨 Response statusText:", error.response?.statusText);
+      console.error("🚨 Response headers:", error.response?.headers);
+      console.error("🚨 Response data:", JSON.stringify(error.response?.data, null, 2));
+      console.error("🚨 Network error?:", !error.response);
+      console.error("🚨 === FIN ERREUR BULK CREATE ===");
       throw error;
     }
   },
@@ -300,12 +398,39 @@ export const quotesApi = {
   // Mise à jour complète d'un devis avec tous ses éléments en une seule transaction
   bulkUpdateQuote: async (id: string, quoteData: BulkQuoteData): Promise<QuoteDetail> => {
     try {
-      console.log(`API: Mise à jour bulk du devis ${id}`, quoteData);
+      console.log("📝 === API BULK UPDATE - DÉBUT ===");
+      console.log("📝 URL:", `/quotes/${id}/bulk_update/`);
+      console.log("📝 Method:", 'PUT');
+      console.log("📝 ID devis:", id);
+      console.log("📝 Payload complet:", JSON.stringify(quoteData, null, 2));
+      console.log("📝 Headers:", {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || 'NO_TOKEN'}`
+      });
+      console.log("📝 === ENVOI REQUÊTE ===");
+      
       const response = await apiClient.put(`/quotes/${id}/bulk_update/`, quoteData);
-      console.log("Réponse mise à jour bulk:", response.data);
+      
+      console.log("✅ === RÉPONSE BULK UPDATE ===");
+      console.log("✅ Status:", response.status);
+      console.log("✅ Status Text:", response.statusText);
+      console.log("✅ Headers réponse:", response.headers);
+      console.log("✅ Données réponse:", JSON.stringify(response.data, null, 2));
+      console.log("✅ === FIN RÉPONSE ===");
+      
       return response.data.quote;
-    } catch (error) {
-      console.error(`Erreur lors de la mise à jour bulk du devis ${id}:`, error);
+    } catch (error: any) {
+      console.error("🚨 === ERREUR BULK UPDATE ===");
+      console.error("🚨 Error object:", error);
+      console.error("🚨 Request URL:", error.config?.url);
+      console.error("🚨 Request method:", error.config?.method);
+      console.error("🚨 Request data:", error.config?.data);
+      console.error("🚨 Response status:", error.response?.status);
+      console.error("🚨 Response statusText:", error.response?.statusText);
+      console.error("🚨 Response headers:", error.response?.headers);
+      console.error("🚨 Response data:", JSON.stringify(error.response?.data, null, 2));
+      console.error("🚨 Network error?:", !error.response);
+      console.error("🚨 === FIN ERREUR BULK UPDATE ===");
       throw error;
     }
   },
@@ -389,7 +514,7 @@ export const quotesApi = {
   // Récupérer tous les éléments d'un devis
   getQuoteItems: async (quoteId: string): Promise<QuoteItem[]> => {
     try {
-      const response = await apiClient.get(`/quote-items/by_quote/?quote_id=${quoteId}`);
+      const response = await apiClient.get(`/quotes/quote-items/by_quote/?quote_id=${quoteId}`);
       return response.data.items;
     } catch (error) {
       console.error(`Erreur lors du chargement des éléments du devis ${quoteId}:`, error);
@@ -400,7 +525,7 @@ export const quotesApi = {
   // Récupérer un élément de devis par ID
   getQuoteItem: async (id: string): Promise<QuoteItem> => {
     try {
-      const response = await apiClient.get(`/quote-items/${id}/`);
+      const response = await apiClient.get(`/quotes/quote-items/${id}/`);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors du chargement de l'élément ${id}:`, error);
@@ -411,7 +536,7 @@ export const quotesApi = {
   // Créer un nouvel élément de devis
   createQuoteItem: async (itemData: CreateQuoteItemData): Promise<QuoteItem> => {
     try {
-      const response = await apiClient.post('/quote-items/', itemData);
+      const response = await apiClient.post('/quotes/quote-items/', itemData);
       return response.data;
     } catch (error) {
       console.error("Erreur lors de la création de l'élément:", error);
@@ -422,7 +547,7 @@ export const quotesApi = {
   // Mettre à jour un élément de devis
   updateQuoteItem: async (id: string, itemData: Partial<CreateQuoteItemData>): Promise<QuoteItem> => {
     try {
-      const response = await apiClient.patch(`/quote-items/${id}/`, itemData);
+      const response = await apiClient.patch(`/quotes/quote-items/${id}/`, itemData);
       return response.data;
     } catch (error) {
       console.error(`Erreur lors de la mise à jour de l'élément ${id}:`, error);
@@ -433,7 +558,7 @@ export const quotesApi = {
   // Supprimer un élément de devis
   deleteQuoteItem: async (id: string): Promise<void> => {
     try {
-      await apiClient.delete(`/quote-items/${id}/`);
+      await apiClient.delete(`/quotes/quote-items/${id}/`);
     } catch (error) {
       console.error(`Erreur lors de la suppression de l'élément ${id}:`, error);
       throw error;
@@ -444,7 +569,7 @@ export const quotesApi = {
   reorderQuoteItems: async (itemsOrder: string[]): Promise<void> => {
     try {
       console.log("API: Réorganisation des éléments", itemsOrder);
-      await apiClient.post('/quote-items/reorder/', { items_order: itemsOrder });
+      await apiClient.post('/quotes/quote-items/reorder/', { items_order: itemsOrder });
     } catch (error) {
       console.error("Erreur lors de la réorganisation des éléments:", error);
       throw error;
@@ -463,7 +588,7 @@ export const quotesApi = {
   }> => {
     try {
       console.log("API: Opérations en lot sur les éléments", operations);
-      const response = await apiClient.post('/quote-items/batch_operations/', { operations });
+      const response = await apiClient.post('/quotes/quote-items/batch_operations/', { operations });
       console.log("Réponse opérations en lot:", response.data);
       return response.data;
     } catch (error) {
@@ -477,7 +602,8 @@ export const quotesApi = {
   // Rechercher des devis
   searchQuotes: async (query: string): Promise<Quote[]> => {
     try {
-      return await quotesApi.getQuotes({ search: query });
+      const response = await quotesApi.getQuotes({ search: query });
+      return response.results;
     } catch (error) {
       console.error("Erreur lors de la recherche de devis:", error);
       throw error;
@@ -487,7 +613,8 @@ export const quotesApi = {
   // Obtenir les devis d'un client
   getQuotesByClient: async (clientId: string): Promise<Quote[]> => {
     try {
-      return await quotesApi.getQuotes({ client_id: clientId });
+      const response = await quotesApi.getQuotes({ client_id: clientId });
+      return response.results;
     } catch (error) {
       console.error(`Erreur lors du chargement des devis du client ${clientId}:`, error);
       throw error;
@@ -497,7 +624,8 @@ export const quotesApi = {
   // Obtenir les devis par statut
   getQuotesByStatus: async (status: string): Promise<Quote[]> => {
     try {
-      return await quotesApi.getQuotes({ status });
+      const response = await quotesApi.getQuotes({ status });
+      return response.results;
     } catch (error) {
       console.error(`Erreur lors du chargement des devis avec le statut ${status}:`, error);
       throw error;
@@ -515,14 +643,16 @@ export const quotesApi = {
       quantity: backendItem.quantity,
       unit: backendItem.unit,
       unitPrice: backendItem.unit_price,
-      discountPercentage: backendItem.discount_percentage || 0,
-      tvaRate: backendItem.tva_rate,
+      discount: backendItem.discount,
+      vat_rate: backendItem.vat_rate,
       type: backendItem.type,
       reference: backendItem.reference,
       position: backendItem.position,
       parent: backendItem.parent,
       totalHt: backendItem.total_ht,
       totalTtc: backendItem.total_ttc,
+      margin: backendItem.margin,
+      work_id: backendItem.work_id,
     };
   },
 
@@ -534,24 +664,28 @@ export const quotesApi = {
       quantity: editorItem.quantity,
       unit: editorItem.unit,
       unit_price: editorItem.unitPrice,
-      discount_percentage: editorItem.discountPercentage || 0,
-      tva_rate: editorItem.tvaRate,
+      discount: editorItem.discount,
+      vat_rate: editorItem.vat_rate,
       type: editorItem.type,
       reference: editorItem.reference,
+      position: editorItem.position,
+      parent: editorItem.parent,
+      margin: editorItem.margin,
+      work_id: editorItem.work_id,
     };
   },
 
   // Calculer le total HT d'un élément
   calculateItemTotal: (item: EditorQuoteItem): number => {
     const baseTotal = item.quantity * item.unitPrice;
-    const discountAmount = baseTotal * (item.discountPercentage / 100);
+    const discountAmount = baseTotal * (item.discount / 100);
     return baseTotal - discountAmount;
   },
 
   // Calculer le total TTC d'un élément
   calculateItemTotalTTC: (item: EditorQuoteItem): number => {
     const totalHT = quotesApi.calculateItemTotal(item);
-    const tvaRate = parseFloat(item.tvaRate) / 100;
+    const tvaRate = parseFloat(item.vat_rate) / 100;
     return totalHT * (1 + tvaRate);
   },
 
@@ -568,7 +702,7 @@ export const quotesApi = {
 
     items.forEach(item => {
       const itemTotalHT = quotesApi.calculateItemTotal(item);
-      const tvaRate = parseFloat(item.tvaRate);
+      const tvaRate = parseFloat(item.vat_rate);
       const tvaAmount = itemTotalHT * (tvaRate / 100);
 
       totalHT += itemTotalHT;
