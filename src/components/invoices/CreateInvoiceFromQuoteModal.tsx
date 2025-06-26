@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, AlertCircle } from "lucide-react";
+import { Check, AlertCircle, FileText, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/dialog";
 import { Quote } from "@/lib/types/quote";
 import { formatCurrency } from "@/lib/utils";
+import { createInvoiceFromQuote, CreateInvoiceFromQuoteRequest } from "@/lib/api/invoices";
+import { toast } from "sonner";
 
 interface CreateInvoiceFromQuoteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quote: Quote;
-  onSubmit: (quoteId: string, type: 'advance' | 'total', advancePercentage?: number) => void;
+  onSubmit?: (invoice: any) => void;
 }
 
 export function CreateInvoiceFromQuoteModal({
@@ -31,6 +33,7 @@ export function CreateInvoiceFromQuoteModal({
   const [invoiceType, setInvoiceType] = useState<'advance' | 'total'>('total');
   const [advancePercentage, setAdvancePercentage] = useState<number>(30);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
 
   // Calculer le montant de l'acompte
   const calculateAdvanceAmount = () => {
@@ -53,15 +56,37 @@ export function CreateInvoiceFromQuoteModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  // Soumettre le formulaire
-  const handleSubmit = () => {
-    if (validateForm()) {
-      onSubmit(
-        quote.id, 
-        invoiceType, 
-        invoiceType === 'advance' ? advancePercentage : undefined
-      );
+  // Soumettre le formulaire avec intégration API
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      const invoiceData: CreateInvoiceFromQuoteRequest = {
+        type: invoiceType,
+        advancePercentage: invoiceType === 'advance' ? advancePercentage : undefined,
+        issueDate: new Date().toISOString().split('T')[0],
+        paymentTerms: 30
+      };
+
+      const newInvoice = await createInvoiceFromQuote(quote.id, invoiceData);
+      
+      toast.success("Facture créée avec succès", {
+        description: `Facture ${invoiceType === 'advance' ? 'd\'acompte' : 'totale'} créée depuis le devis ${quote.number}`
+      });
+
+      if (onSubmit) {
+        onSubmit(newInvoice);
+      }
+      
       onOpenChange(false);
+    } catch (err: any) {
+      console.error('Erreur lors de la création de la facture:', err);
+      toast.error("Erreur lors de la création", {
+        description: err?.response?.data?.message || "Impossible de créer la facture"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,7 +94,10 @@ export function CreateInvoiceFromQuoteModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl">Créer une facture</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-benaya-600" />
+            ✨ Créer une facture
+          </DialogTitle>
           <DialogDescription>
             À partir du devis {quote.number} - {quote.clientName}
           </DialogDescription>
@@ -168,12 +196,21 @@ export function CreateInvoiceFromQuoteModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Annuler
           </Button>
-          <Button onClick={handleSubmit} className="benaya-button-primary gap-2">
-            <Check className="w-4 h-4" />
-            Créer la facture
+          <Button onClick={handleSubmit} disabled={loading} className="gap-2">
+            {loading ? (
+              <>
+                <div className="w-4 h-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Création...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                Créer la facture
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -25,21 +25,32 @@ import { InvoiceTabs } from "@/components/invoices/InvoiceTabs";
 import { InvoiceList } from "@/components/invoices/InvoiceList";
 import { RecordPaymentModal } from "@/components/invoices/RecordPaymentModal";
 import { CreateCreditNoteModal } from "@/components/invoices/CreateCreditNoteModal";
+import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
+import { CreateInvoiceFromQuoteModal } from "@/components/invoices/CreateInvoiceFromQuoteModal";
+import { ValidateInvoiceModal } from "@/components/invoices/ValidateInvoiceModal";
+import { DeleteInvoiceModal } from "@/components/invoices/DeleteInvoiceModal";
+import { InvoiceViewModal } from "@/components/invoices/InvoiceViewModal";
+import { InvoiceFiltersModal } from "@/components/invoices/InvoiceFiltersModal";
+import { BulkInvoiceActionsModal } from "@/components/invoices/BulkInvoiceActionsModal";
+import { toast } from "@/components/ui/use-toast";
 import { 
   getInvoices, 
   getInvoiceStats, 
   validateInvoice, 
   recordPayment, 
-  createCreditNote 
-} from "@/lib/mock/invoices";
-import { Invoice, InvoiceStatus } from "@/lib/types/invoice";
-import { initialTiers } from "@/lib/mock/tiers";
+  createCreditNote,
+  deleteInvoice
+} from "@/lib/api/invoices";
+import { Invoice, InvoiceStatus, Payment } from "@/lib/types/invoice";
 
 export default function Factures() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [stats, setStats] = useState({
     all: 0,
     draft: 0,
@@ -49,37 +60,82 @@ export default function Factures() {
     paid: 0,
     cancelled: 0,
   });
+  const [statsData, setStatsData] = useState({
+    totalAmount: 0,
+    overdueAmount: 0,
+    paidAmount: 0,
+    remainingAmount: 0,
+  });
   
   // States for modals
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [creditNoteModalOpen, setCreditNoteModalOpen] = useState(false);
+  const [createInvoiceModalOpen, setCreateInvoiceModalOpen] = useState(false);
+  const [validateInvoiceModalOpen, setValidateInvoiceModalOpen] = useState(false);
+  const [deleteInvoiceModalOpen, setDeleteInvoiceModalOpen] = useState(false);
 
-  // Load invoices and stats
-  useEffect(() => {
-    const invoiceStats = getInvoiceStats();
-    setStats({
-      all: invoiceStats.total,
-      draft: invoiceStats.draft,
-      sent: invoiceStats.sent,
-      overdue: invoiceStats.overdue,
-      partially_paid: invoiceStats.partially_paid,
-      paid: invoiceStats.paid,
-      cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
-    });
-
-    // Filter invoices based on active tab
-    let statusFilter: InvoiceStatus | undefined;
-    if (activeTab !== "all") {
-      statusFilter = activeTab as InvoiceStatus;
+  // Charger les factures depuis l'API
+  const loadInvoices = async () => {
+    try {
+      setLoading(true);
+      
+      // Préparer les paramètres
+      const params: any = {
+        page,
+        page_size: 20,
+        search: searchQuery || undefined,
+      };
+      
+      // Filtrer par statut si nécessaire
+      if (activeTab !== "all") {
+        params.status = activeTab as InvoiceStatus;
+      }
+      
+      const response = await getInvoices(params);
+      setInvoices(response.results);
+      setTotalCount(response.count);
+    } catch (error) {
+      console.error("Erreur lors du chargement des factures:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les factures",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const filteredInvoices = getInvoices({
-      status: statusFilter,
-      search: searchQuery,
-    });
-    setInvoices(filteredInvoices);
-  }, [activeTab, searchQuery]);
+  // Charger les statistiques depuis l'API
+  const loadStats = async () => {
+    try {
+      const invoiceStats = await getInvoiceStats();
+      setStats({
+        all: invoiceStats.total,
+        draft: invoiceStats.draft,
+        sent: invoiceStats.sent,
+        overdue: invoiceStats.overdue,
+        partially_paid: invoiceStats.partially_paid,
+        paid: invoiceStats.paid,
+        cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
+      });
+      setStatsData({
+        totalAmount: invoiceStats.totalAmount,
+        overdueAmount: invoiceStats.overdueAmount,
+        paidAmount: invoiceStats.paidAmount,
+        remainingAmount: invoiceStats.remainingAmount,
+      });
+    } catch (error) {
+      console.error("Erreur lors du chargement des statistiques:", error);
+    }
+  };
+
+  // Charger les données au montage et lors des changements
+  useEffect(() => {
+    loadInvoices();
+    loadStats();
+  }, [activeTab, searchQuery, page]);
 
   // View invoice details
   const handleViewInvoice = (invoice: Invoice) => {
@@ -91,48 +147,60 @@ export default function Factures() {
     navigate(`/factures/edit/${invoice.id}`);
   };
 
-  // Create new invoice
+  // Create new invoice - ouvrir la modale au lieu de naviguer
   const handleCreateInvoice = () => {
-    navigate(`/factures/edit/new`);
+    setCreateInvoiceModalOpen(true);
   };
 
-  // Delete invoice
+  // Gérer le succès de création de facture
+  const handleCreateInvoiceSuccess = (invoice: Invoice) => {
+    // Rafraîchir la liste et les stats
+    loadInvoices();
+    loadStats();
+    
+    // Naviguer vers l'éditeur pour ajouter les éléments
+    navigate(`/factures/edit/${invoice.id}`);
+  };
+
+  // Delete invoice - ouvrir la modale de confirmation
   const handleDeleteInvoice = (invoice: Invoice) => {
-    // In a real app, we would ask for confirmation
-    if (confirm(`Êtes-vous sûr de vouloir supprimer la facture ${invoice.number} ?`)) {
-      // Delete the invoice (to be implemented in lib/mock/invoices.ts)
-      // Then reload invoices
-      const updatedInvoices = invoices.filter(inv => inv.id !== invoice.id);
-      setInvoices(updatedInvoices);
-    }
+    setSelectedInvoice(invoice);
+    setDeleteInvoiceModalOpen(true);
   };
 
-  // Validate and send invoice
+  // Gérer le succès de suppression
+  const handleDeleteInvoiceSuccess = () => {
+    // La suppression a déjà été effectuée dans la modale DeleteInvoiceModal
+    // Rafraîchir la liste et les stats en une seule fois
+    Promise.all([
+      loadInvoices(),
+      loadStats()
+    ]);
+    
+    toast({
+      title: "Succès",
+      description: "La facture a été supprimée avec succès",
+    });
+  };
+
+  // Validate and send invoice - ouvrir la modale de validation
   const handleSendInvoice = (invoice: Invoice) => {
-    try {
-      const updatedInvoice = validateInvoice(invoice.id);
-      if (updatedInvoice) {
-        // Update invoice list
-        const updatedInvoices = invoices.map(inv => 
-          inv.id === updatedInvoice.id ? updatedInvoice : inv
-        );
-        setInvoices(updatedInvoices);
-        
-        // Update stats
-        const invoiceStats = getInvoiceStats();
-        setStats({
-          all: invoiceStats.total,
-          draft: invoiceStats.draft,
-          sent: invoiceStats.sent,
-          overdue: invoiceStats.overdue,
-          partially_paid: invoiceStats.partially_paid,
-          paid: invoiceStats.paid,
-          cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
-        });
-      }
-    } catch (err) {
-      console.error("Erreur lors de la validation de la facture:", err);
-    }
+    setSelectedInvoice(invoice);
+    setValidateInvoiceModalOpen(true);
+  };
+
+  // Gérer le succès de validation
+  const handleValidateInvoiceSuccess = async (validatedInvoice: Invoice) => {
+    // Rafraîchir la liste et les stats en une seule fois
+    await Promise.all([
+      loadInvoices(),
+      loadStats()
+    ]);
+    
+    toast({
+      title: "Succès",
+      description: `La facture ${validatedInvoice.number} a été validée`,
+    });
   };
 
   // Record payment
@@ -142,30 +210,28 @@ export default function Factures() {
   };
 
   // Submit payment
-  const handleSubmitPayment = (invoiceId: string, payment: Omit<Payment, "id">) => {
+  const handleSubmitPayment = async (invoiceId: string, payment: Omit<Payment, "id">) => {
     try {
-      const updatedInvoice = recordPayment(invoiceId, payment);
-      if (updatedInvoice) {
-        // Update invoice list
-        const updatedInvoices = invoices.map(inv => 
-          inv.id === updatedInvoice.id ? updatedInvoice : inv
-        );
-        setInvoices(updatedInvoices);
+      const result = await recordPayment(invoiceId, payment);
+      if (result) {
+        // Rafraîchir la liste et les stats en une seule fois
+        await Promise.all([
+          loadInvoices(),
+          loadStats()
+        ]);
         
-        // Update stats
-        const invoiceStats = getInvoiceStats();
-        setStats({
-          all: invoiceStats.total,
-          draft: invoiceStats.draft,
-          sent: invoiceStats.sent,
-          overdue: invoiceStats.overdue,
-          partially_paid: invoiceStats.partially_paid,
-          paid: invoiceStats.paid,
-          cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
+        toast({
+          title: "Succès",
+          description: "Le paiement a été enregistré avec succès",
         });
       }
     } catch (err) {
       console.error("Erreur lors de l'enregistrement du paiement:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer le paiement",
+        variant: "destructive",
+      });
     }
   };
 
@@ -176,31 +242,33 @@ export default function Factures() {
   };
 
   // Submit credit note
-  const handleSubmitCreditNote = (invoiceId: string, isFullCreditNote: boolean, selectedItems?: string[]) => {
+  const handleSubmitCreditNote = async (invoiceId: string, isFullCreditNote: boolean, selectedItems?: string[]) => {
     try {
-      const creditNote = createCreditNote(invoiceId, isFullCreditNote, selectedItems);
-      if (creditNote) {
-        // Update invoice list
-        const updatedInvoices = getInvoices({
-          status: activeTab !== "all" ? activeTab as InvoiceStatus : undefined,
-          search: searchQuery,
-        });
-        setInvoices(updatedInvoices);
+      const result = await createCreditNote(invoiceId, {
+        reason: "Avoir sur facture",
+        is_full_credit_note: isFullCreditNote,
+        selected_items: selectedItems
+      });
+      
+      if (result && result.creditNote) {
+        // Rafraîchir les données en une seule fois pour éviter les rendus multiples
+        await Promise.all([
+          loadInvoices(),
+          loadStats()
+        ]);
         
-        // Update stats
-        const invoiceStats = getInvoiceStats();
-        setStats({
-          all: invoiceStats.total,
-          draft: invoiceStats.draft,
-          sent: invoiceStats.sent,
-          overdue: invoiceStats.overdue,
-          partially_paid: invoiceStats.partially_paid,
-          paid: invoiceStats.paid,
-          cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
+        toast({
+          title: "Succès",
+          description: "L'avoir a été créé avec succès",
         });
       }
     } catch (err) {
       console.error("Erreur lors de la création de l'avoir:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer l'avoir",
+        variant: "destructive",
+      });
     }
   };
 
@@ -240,10 +308,10 @@ export default function Factures() {
           partially_paid: stats.partially_paid,
           paid: stats.paid,
           cancelled: stats.cancelled,
-          totalAmount: getInvoiceStats().totalAmount,
-          overdueAmount: getInvoiceStats().overdueAmount,
-          paidAmount: getInvoiceStats().paidAmount,
-          remainingAmount: getInvoiceStats().remainingAmount,
+          totalAmount: statsData.totalAmount,
+          overdueAmount: statsData.overdueAmount,
+          paidAmount: statsData.paidAmount,
+          remainingAmount: statsData.remainingAmount,
         }}
       />
 
@@ -284,20 +352,61 @@ export default function Factures() {
       </div>
 
       {/* Modals */}
+      
+      {/* Nouvelle facture */}
+      <CreateInvoiceModal
+        open={createInvoiceModalOpen}
+        onOpenChange={setCreateInvoiceModalOpen}
+        onSuccess={handleCreateInvoiceSuccess}
+      />
+
+      {/* Modales nécessitant une facture sélectionnée */}
       {selectedInvoice && (
         <>
           <RecordPaymentModal
             open={paymentModalOpen}
             onOpenChange={setPaymentModalOpen}
             invoice={selectedInvoice}
-            onSubmit={handleSubmitPayment}
+            onSuccess={async (updatedInvoice) => {
+              toast({
+                title: "Succès",
+                description: "Le paiement a été enregistré avec succès",
+              });
+              
+              // Rafraîchir la liste et les stats
+              loadInvoices();
+              loadStats();
+            }}
           />
           
           <CreateCreditNoteModal
             open={creditNoteModalOpen}
             onOpenChange={setCreditNoteModalOpen}
             invoice={selectedInvoice}
-            onSubmit={handleSubmitCreditNote}
+            onSuccess={async (creditNote, originalInvoice) => {
+              toast({
+                title: "Succès",
+                description: "L'avoir a été créé avec succès",
+              });
+              
+              // Rafraîchir la liste et les stats
+              loadInvoices();
+              loadStats();
+            }}
+          />
+
+          <ValidateInvoiceModal
+            open={validateInvoiceModalOpen}
+            onOpenChange={setValidateInvoiceModalOpen}
+            invoice={selectedInvoice}
+            onSuccess={handleValidateInvoiceSuccess}
+          />
+
+          <DeleteInvoiceModal
+            open={deleteInvoiceModalOpen}
+            onOpenChange={setDeleteInvoiceModalOpen}
+            invoice={selectedInvoice}
+            onSuccess={handleDeleteInvoiceSuccess}
           />
         </>
       )}

@@ -120,4 +120,5 @@ export interface InvoiceStats {
   overdueAmount: number;
   paidAmount: number;
   remainingAmount: number;
+  averagePaymentDelay: number; // Délai moyen de paiement en jours
 }

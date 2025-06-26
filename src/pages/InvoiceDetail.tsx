@@ -1,18 +1,27 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  Send, 
-  Printer, 
-  Download, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  AlertCircle,
+import {
+  ArrowLeft,
+  Edit2,
+  Send,
+  Eye,
+  Download,
+  FileText,
   Calendar,
   User,
-  Building,
-  FileText
+  MapPin,
+  Euro,
+  Clock,
+  AlertCircle,
+  CreditCard,
+  FileX,
+  Check,
+  X,
+  Copy,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +36,9 @@ import {
 } from "@/components/ui/table";
 import { RecordPaymentModal } from "@/components/invoices/RecordPaymentModal";
 import { CreateCreditNoteModal } from "@/components/invoices/CreateCreditNoteModal";
+import { toast } from "@/components/ui/use-toast";
+import { getInvoiceById } from "@/lib/api/invoices";
 import { Invoice, InvoiceStatus, Payment } from "@/lib/types/invoice";
-import { getInvoiceById, recordPayment, createCreditNote } from "@/lib/mock/invoices";
 import { formatCurrency } from "@/lib/utils";
 
 export default function InvoiceDetail() {
@@ -42,52 +52,33 @@ export default function InvoiceDetail() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [creditNoteModalOpen, setCreditNoteModalOpen] = useState(false);
 
-  // Charger les données de la facture
+  // Charger la facture depuis l'API
   useEffect(() => {
     if (id) {
-      try {
-        const invoiceData = getInvoiceById(id);
-        if (invoiceData) {
-          setInvoice(invoiceData);
-        } else {
-          setError("Facture non trouvée");
-        }
-      } catch (err) {
-        setError("Erreur lors du chargement de la facture");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+      loadInvoice();
     }
   }, [id]);
 
-  // Enregistrer un paiement
-  const handleRecordPayment = (invoiceId: string, payment: Omit<Payment, "id">) => {
+  const loadInvoice = async () => {
     try {
-      const updatedInvoice = recordPayment(invoiceId, payment);
-      if (updatedInvoice) {
-        setInvoice(updatedInvoice);
-      }
-    } catch (err) {
-      console.error("Erreur lors de l'enregistrement du paiement:", err);
+      setLoading(true);
+      const data = await getInvoiceById(id!);
+      setInvoice(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement de la facture:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger la facture",
+        variant: "destructive",
+      });
+      // Rediriger vers la liste en cas d'erreur
+      navigate("/factures");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Créer un avoir
-  const handleCreateCreditNote = (invoiceId: string, isFullCreditNote: boolean, selectedItems?: string[]) => {
-    try {
-      const creditNote = createCreditNote(invoiceId, isFullCreditNote, selectedItems);
-      if (creditNote) {
-        // Recharger la facture pour obtenir le statut mis à jour
-        const updatedInvoice = getInvoiceById(invoiceId);
-        if (updatedInvoice) {
-          setInvoice(updatedInvoice);
-        }
-      }
-    } catch (err) {
-      console.error("Erreur lors de la création de l'avoir:", err);
-    }
-  };
+
 
   // Générer un PDF (placeholder)
   const handleGeneratePDF = () => {
@@ -133,7 +124,7 @@ export default function InvoiceDetail() {
       case "paid":
         return (
           <Badge className="benaya-badge-success gap-1">
-            <CheckCircle className="w-3 h-3" />
+            <Check className="w-3 h-3" />
             Payée
           </Badge>
         );
@@ -141,7 +132,7 @@ export default function InvoiceDetail() {
       case "cancelled_by_credit_note":
         return (
           <Badge className="benaya-badge-neutral gap-1">
-            <XCircle className="w-3 h-3" />
+            <X className="w-3 h-3" />
             Annulée
           </Badge>
         );
@@ -271,7 +262,7 @@ export default function InvoiceDetail() {
 
               <div className="space-y-4">
                 <h3 className="font-medium flex items-center gap-2">
-                  <Building className="h-4 w-4" />
+                  <MapPin className="h-4 w-4" />
                   Projet
                 </h3>
                 <div className="space-y-1">
@@ -473,7 +464,7 @@ export default function InvoiceDetail() {
                     className="w-full benaya-button-primary gap-2"
                     onClick={() => setPaymentModalOpen(true)}
                   >
-                    <CheckCircle className="w-4 h-4" />
+                    <Check className="w-4 h-4" />
                     Enregistrer un paiement
                   </Button>
                 )}
@@ -484,7 +475,7 @@ export default function InvoiceDetail() {
                     className="w-full gap-2"
                     onClick={() => setCreditNoteModalOpen(true)}
                   >
-                    <XCircle className="w-4 h-4" />
+                    <X className="w-4 h-4" />
                     Créer un avoir
                   </Button>
                 )}
@@ -560,14 +551,28 @@ export default function InvoiceDetail() {
             open={paymentModalOpen}
             onOpenChange={setPaymentModalOpen}
             invoice={invoice}
-            onSubmit={handleRecordPayment}
+            onSuccess={async (updatedInvoice) => {
+              setInvoice(updatedInvoice);
+              toast({
+                title: "Succès",
+                description: "Le paiement a été enregistré avec succès",
+              });
+            }}
           />
           
           <CreateCreditNoteModal
             open={creditNoteModalOpen}
             onOpenChange={setCreditNoteModalOpen}
             invoice={invoice}
-            onSubmit={handleCreateCreditNote}
+            onSuccess={async (creditNote, originalInvoice) => {
+              setInvoice(originalInvoice);
+              toast({
+                title: "Succès",
+                description: "L'avoir a été créé avec succès",
+              });
+              // Rediriger vers l'avoir créé
+              navigate(`/factures/${creditNote.id}`);
+            }}
           />
         </>
       )}

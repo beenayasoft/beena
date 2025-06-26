@@ -47,9 +47,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Invoice, InvoiceItem, VATRate, InvoiceStatus } from "@/lib/types/invoice";
-import { getInvoiceById, validateInvoice } from "@/lib/mock/invoices";
-import { initialTiers } from "@/lib/mock/tiers";
+import { getInvoiceById, updateInvoice, validateInvoice } from "@/lib/api/invoices";
+import { tiersApi } from "@/lib/api/tiers";
 import { formatCurrency } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DraggableInvoiceItem } from "@/components/invoices/DraggableInvoiceItem";
@@ -100,33 +101,64 @@ export default function InvoiceEditor() {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // States pour les données  
+  const [clients, setClients] = useState<any[]>([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+
   // Load invoice data if editing
   useEffect(() => {
     if (!isNewInvoice && id) {
-      try {
-        const invoiceData = getInvoiceById(id);
-        if (invoiceData) {
-          setInvoice(invoiceData);
-        } else {
-          setError("Facture non trouvée");
-        }
-      } catch (err) {
-        setError("Erreur lors du chargement de la facture");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+      loadInvoice();
     } else {
       setLoading(false);
     }
   }, [id, isNewInvoice]);
 
-  // Mark form as dirty when changes are made
+  // Load clients data
   useEffect(() => {
-    if (!loading) {
-      setIsDirty(true);
+    const loadClients = async () => {
+      setLoadingClients(true);
+      try {
+        const response = await tiersApi.getTiers({ page_size: 100 });
+        setClients(response.results.map((tier: any) => ({
+          id: tier.id,
+          name: tier.name,
+          address: tier.address,
+          type: tier.type || []
+        })));
+      } catch (err) {
+        console.error("Erreur lors du chargement des clients:", err);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger la liste des clients",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingClients(false);
+      }
+    };
+
+    loadClients();
+  }, []);
+
+  // Load invoice data
+  const loadInvoice = async () => {
+    try {
+      if (!id) return;
+
+      const invoiceData = await getInvoiceById(id);
+      if (invoiceData) {
+        setInvoice(invoiceData);
+      } else {
+        setError("Facture non trouvée");
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement de la facture:", err);
+      setError("Erreur lors du chargement de la facture");
+    } finally {
+      setLoading(false);
     }
-  }, [invoice, loading]);
+  };
 
   // Recalculate totals when items change
   useEffect(() => {
@@ -162,14 +194,29 @@ export default function InvoiceEditor() {
     }
   }, [invoice.items]);
 
-  // Clients and projects data
-  const clients = initialTiers;
-  const projects = [
-    { id: '1', name: 'Villa Moderne', address: '123 Rue de la Paix, Casablanca', clientId: '1' },
-    { id: '2', name: 'Rénovation appartement', address: '45 Avenue Hassan II, Rabat', clientId: '2' },
-    { id: '3', name: 'Extension maison', address: '78 Boulevard Zerktouni, Marrakech', clientId: '3' },
-    { id: '4', name: 'Rénovation cuisine', address: '25 Boulevard Central, 33000 Bordeaux', clientId: '4' },
-  ];
+  // Update project selection
+  const handleProjectChange = (projectId: string) => {
+    // Rechercher le projet dans les projets du client sélectionné
+    const selectedClient = clients.find(client => client.id === invoice.clientId);
+    if (selectedClient && selectedClient.projects) {
+      const selectedProject = selectedClient.projects.find((project: any) => project.id === projectId);
+      if (selectedProject) {
+        setInvoice(prev => ({
+          ...prev,
+          projectId,
+          projectName: selectedProject.name,
+          projectAddress: selectedProject.address,
+        }));
+      }
+    }
+  };
+
+  // Mark form as dirty when changes are made
+  useEffect(() => {
+    if (!loading) {
+      setIsDirty(true);
+    }
+  }, [invoice, loading]);
 
   // Update client selection
   const handleClientChange = (clientId: string) => {
@@ -182,52 +229,6 @@ export default function InvoiceEditor() {
         clientAddress: selectedClient.address,
       }));
       setErrors(prev => ({ ...prev, clientId: "" }));
-      
-      // Check if there's a project for this client
-      const clientProjects = projects.filter(p => p.clientId === clientId);
-      if (clientProjects.length === 1) {
-        // If only one project, select it automatically
-        handleProjectChange(clientProjects[0].id);
-      } else if (invoice.projectId) {
-        // Check if current project belongs to this client
-        const currentProject = projects.find(p => p.id === invoice.projectId);
-        if (currentProject && currentProject.clientId !== clientId) {
-          // Reset project if it doesn't belong to the client
-          setInvoice(prev => ({
-            ...prev,
-            projectId: "",
-            projectName: "",
-            projectAddress: "",
-          }));
-        }
-      }
-    }
-  };
-
-  // Update project selection
-  const handleProjectChange = (projectId: string) => {
-    const selectedProject = projects.find(project => project.id === projectId);
-    if (selectedProject) {
-      setInvoice(prev => ({
-        ...prev,
-        projectId,
-        projectName: selectedProject.name,
-        projectAddress: selectedProject.address,
-      }));
-      
-      // If client is not already selected, select the project's client
-      if (!invoice.clientId) {
-        const projectClient = clients.find(client => client.id === selectedProject.clientId);
-        if (projectClient) {
-          setInvoice(prev => ({
-            ...prev,
-            clientId: projectClient.id,
-            clientName: projectClient.name,
-            clientAddress: projectClient.address,
-          }));
-          setErrors(prev => ({ ...prev, clientId: "" }));
-        }
-      }
     }
   };
 
@@ -376,17 +377,45 @@ export default function InvoiceEditor() {
     if (validateForm()) {
       setSaving(true);
       try {
-        // In a real app, this would be an API call
-        console.log("Saving invoice:", invoice);
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Navigate back to invoice list
-        navigate("/factures");
+        if (isNewInvoice) {
+          // Créer une nouvelle facture - sera implémenté côté backend
+          toast({
+            title: "Info",
+            description: "La création de facture via l'éditeur sera disponible prochainement",
+          });
+        } else if (invoice.id) {
+          // Mettre à jour la facture existante
+          const updatedInvoice = await updateInvoice(invoice.id, {
+            clientId: invoice.clientId!,
+            clientName: invoice.clientName,
+            clientAddress: invoice.clientAddress,
+            projectId: invoice.projectId,
+            projectName: invoice.projectName,
+            projectAddress: invoice.projectAddress,
+            issueDate: invoice.issueDate!,
+            dueDate: invoice.dueDate,
+            paymentTerms: invoice.paymentTerms,
+            items: invoice.items,
+            notes: invoice.notes,
+            termsAndConditions: invoice.termsAndConditions,
+          });
+          
+          toast({
+            title: "Succès",
+            description: "La facture a été sauvegardée avec succès",
+          });
+          
+          // Navigate back to invoice list
+          navigate("/factures");
+        }
       } catch (err) {
         console.error("Error saving invoice:", err);
         setError("Erreur lors de l'enregistrement de la facture");
+        toast({
+          title: "Erreur",
+          description: "Impossible de sauvegarder la facture",
+          variant: "destructive",
+        });
       } finally {
         setSaving(false);
       }
@@ -398,22 +427,25 @@ export default function InvoiceEditor() {
     if (validateForm()) {
       setSaving(true);
       try {
-        // In a real app, this would be an API call
-        console.log("Validating and sending invoice:", invoice);
-        
         if (invoice.id) {
-          const validatedInvoice = validateInvoice(invoice.id);
-          if (validatedInvoice) {
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Navigate back to invoice list
-            navigate("/factures");
-          }
+          const validatedInvoice = await validateInvoice(invoice.id);
+          
+          toast({
+            title: "Succès",
+            description: `La facture ${validatedInvoice.number} a été validée et émise`,
+          });
+          
+          // Navigate back to invoice list
+          navigate("/factures");
         }
       } catch (err) {
         console.error("Error validating invoice:", err);
         setError("Erreur lors de la validation de la facture");
+        toast({
+          title: "Erreur",
+          description: "Impossible de valider la facture",
+          variant: "destructive",
+        });
       } finally {
         setSaving(false);
       }
@@ -437,8 +469,8 @@ export default function InvoiceEditor() {
 
   // Get filtered projects based on selected client
   const getFilteredProjects = () => {
-    if (!invoice.clientId) return projects;
-    return projects.filter(project => project.clientId === invoice.clientId);
+    // Pour l'instant, nous n'avons pas de données de projets
+    return [];
   };
 
   // Get section items for hierarchical display

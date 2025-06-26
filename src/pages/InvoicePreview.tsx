@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Invoice } from "@/lib/types/invoice";
-import { getInvoiceById } from "@/lib/mock/invoices";
+import { getInvoiceById } from "@/lib/api/invoices";
 import { formatCurrency } from "@/lib/utils";
 
 export default function InvoicePreview() {
@@ -37,22 +37,27 @@ export default function InvoicePreview() {
     
     // Si pas de données dans sessionStorage ou erreur de parsing, essayer de charger depuis l'API
     if (id && id !== 'preview') {
-      try {
-        const invoiceData = getInvoiceById(id);
-        if (invoiceData) {
-          setInvoice(invoiceData);
-        } else {
-          setError("Facture non trouvée");
+      const fetchInvoice = async () => {
+        try {
+          const invoiceData = await getInvoiceById(id);
+          if (invoiceData) {
+            setInvoice(invoiceData);
+          } else {
+            setError("Facture non trouvée");
+          }
+        } catch (err) {
+          setError("Erreur lors du chargement de la facture");
+          console.error(err);
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        setError("Erreur lors du chargement de la facture");
-        console.error(err);
-      }
+      };
+      
+      fetchInvoice();
     } else if (!storedInvoice) {
       setError("Aucune donnée d'aperçu disponible");
+      setLoading(false);
     }
-    
-    setLoading(false);
   }, [id]);
 
   // Format a date
