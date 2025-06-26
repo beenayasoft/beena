@@ -217,25 +217,32 @@ export function CreateInvoiceModal({ open, onOpenChange, onSuccess }: CreateInvo
 
       const newInvoice = await createInvoice(invoiceData);
       
+      // Vérifier l'ID de la facture créée
+      console.log("Facture créée avec succès. ID:", newInvoice.id);
+      
       toast.success("Facture créée avec succès", {
         description: `La facture brouillon a été créée et est prête à être éditée.`
       });
 
-      if (onSuccess) {
-        onSuccess(newInvoice);
-      }
-      
+      // Fermer d'abord la modale pour éviter les problèmes de focus
       handleClose();
+      
+      // Puis appeler le callback de succès après une courte attente
+      setTimeout(() => {
+        if (onSuccess) {
+          console.log("Appel du callback onSuccess avec l'ID:", newInvoice.id);
+          onSuccess(newInvoice);
+        }
+      }, 100);
     } catch (err: any) {
       console.error('Erreur lors de la création de la facture:', err);
       setError(err?.response?.data?.message || "Erreur lors de la création de la facture");
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-benaya-600">

@@ -179,8 +179,99 @@ export const getInvoiceById = async (id: string): Promise<Invoice> => {
  * Crée une nouvelle facture directe (US 5.2)
  */
 export const createInvoice = async (data: CreateInvoiceRequest): Promise<Invoice> => {
-  const response = await apiClient.post('/invoices/', data);
-  return response.data;
+  console.log("Appel de createInvoice avec les données:", data);
+  
+  try {
+    const response = await apiClient.post('/invoices/', data);
+    
+    // S'assurer que la réponse est correctement transformée et que l'ID est présent
+    const invoice = response.data;
+    
+    console.log("Réponse API createInvoice brute:", invoice);
+    
+    if (!invoice) {
+      console.error("Erreur: La réponse de l'API est vide");
+      throw new Error("La réponse de l'API est vide");
+    }
+    
+    if (!invoice.id) {
+      console.error("Erreur: La réponse de l'API ne contient pas d'ID", invoice);
+      
+      // Si l'ID n'est pas présent mais que nous avons une réponse, tentons de récupérer la dernière facture créée
+      if (invoice.tier) {
+        console.log("Tentative de récupération de la dernière facture créée pour le tier:", invoice.tier);
+        const invoicesResponse = await apiClient.get('/invoices/', {
+          params: {
+            tier: invoice.tier,
+            ordering: '-created_at',
+            page_size: 1
+          }
+        });
+        
+        if (invoicesResponse.data.results && invoicesResponse.data.results.length > 0) {
+          const latestInvoice = invoicesResponse.data.results[0];
+          console.log("Dernière facture récupérée:", latestInvoice);
+          
+          if (latestInvoice.id) {
+            console.log("Utilisation de l'ID de la dernière facture:", latestInvoice.id);
+            invoice.id = latestInvoice.id;
+          } else {
+            throw new Error("Impossible de récupérer un ID valide pour la facture");
+          }
+        } else {
+          throw new Error("Impossible de récupérer la dernière facture créée");
+        }
+      } else {
+        throw new Error("La réponse de l'API ne contient pas d'ID valide");
+      }
+    }
+    
+    // Transformer la réponse pour s'assurer qu'elle correspond au format attendu par le frontend
+    const transformedInvoice = {
+      ...invoice,
+      clientId: invoice.client_id || invoice.tier,
+      clientName: invoice.client_name,
+      clientAddress: invoice.client_address,
+      projectId: invoice.project_id,
+      projectName: invoice.project_name,
+      projectAddress: invoice.project_address,
+      issueDate: invoice.issue_date,
+      dueDate: invoice.due_date,
+      paymentTerms: invoice.payment_terms,
+      termsAndConditions: invoice.terms_and_conditions,
+      totalHT: invoice.total_ht || 0,
+      totalVAT: invoice.total_vat || 0,
+      totalTTC: invoice.total_ttc || 0,
+      paidAmount: invoice.paid_amount || 0,
+      remainingAmount: invoice.remaining_amount || 0,
+      quoteId: invoice.quote_id,
+      quoteNumber: invoice.quote_number,
+      creditNoteId: invoice.credit_note_id,
+      originalInvoiceId: invoice.original_invoice_id,
+      createdAt: invoice.created_at,
+      updatedAt: invoice.updated_at,
+      createdBy: invoice.created_by,
+      updatedBy: invoice.updated_by,
+      // Adapter les éléments si présents
+      items: invoice.items ? invoice.items.map((item: any) => ({
+        ...item,
+        parentId: item.parent_id,
+        unitPrice: item.unit_price,
+        vatRate: item.vat_rate,
+        totalHT: item.total_ht,
+        totalTTC: item.total_ttc,
+        workId: item.work_id
+      })) : []
+    };
+    
+    console.log("Invoice transformée:", transformedInvoice);
+    console.log("ID de la facture transformée:", transformedInvoice.id);
+    
+    return transformedInvoice;
+  } catch (error) {
+    console.error("Erreur lors de la création de la facture:", error);
+    throw error;
+  }
 };
 
 /**

@@ -31,7 +31,9 @@ export function ValidateInvoiceModal({
   invoice, 
   onSuccess 
 }: ValidateInvoiceModalProps) {
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formData, setFormData] = useState({
+    issueDate: new Date().toISOString().split('T')[0]
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,19 +60,24 @@ export function ValidateInvoiceModal({
 
   const validation = canValidate();
 
-  // Soumission du formulaire
-  const handleSubmit = async () => {
-    if (!validation.valid) {
-      setError(validation.reason);
-      return;
+  // Gestion de la fermeture
+  const handleClose = () => {
+    if (!loading) {
+      setFormData({
+        issueDate: new Date().toISOString().split('T')[0]
+      });
+      setError(null);
+      onOpenChange(false);
     }
+  };
 
+  const handleSubmit = async () => {
     setLoading(true);
     setError(null);
 
     try {
       const data = {
-        issue_date: issueDate
+        issue_date: formData.issueDate
       };
 
       const updatedInvoice = await validateInvoice(invoice.id, data);
@@ -79,21 +86,24 @@ export function ValidateInvoiceModal({
         description: `La facture ${updatedInvoice.number} a été validée et émise.`
       });
 
-      if (onSuccess) {
-        onSuccess(updatedInvoice);
-      }
+      // Fermer d'abord la modale pour éviter les problèmes de focus
+      handleClose();
       
-      onOpenChange(false);
+      // Puis appeler le callback de succès après une courte attente
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess(updatedInvoice);
+        }
+      }, 100);
     } catch (err: any) {
       console.error('Erreur lors de la validation de la facture:', err);
       setError(err?.response?.data?.message || "Erreur lors de la validation de la facture");
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -162,8 +172,8 @@ export function ValidateInvoiceModal({
               <Input
                 id="issue-date"
                 type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
+                value={formData.issueDate}
+                onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
                 disabled={loading}
               />
               <p className="text-xs text-neutral-500">
@@ -220,7 +230,7 @@ export function ValidateInvoiceModal({
         <DialogFooter className="pt-4 border-t">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={handleClose}
             disabled={loading}
           >
             Annuler

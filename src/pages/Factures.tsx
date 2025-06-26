@@ -111,15 +111,15 @@ export default function Factures() {
   const loadStats = async () => {
     try {
       const invoiceStats = await getInvoiceStats();
-      setStats({
-        all: invoiceStats.total,
-        draft: invoiceStats.draft,
-        sent: invoiceStats.sent,
-        overdue: invoiceStats.overdue,
-        partially_paid: invoiceStats.partially_paid,
-        paid: invoiceStats.paid,
-        cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
-      });
+    setStats({
+      all: invoiceStats.total,
+      draft: invoiceStats.draft,
+      sent: invoiceStats.sent,
+      overdue: invoiceStats.overdue,
+      partially_paid: invoiceStats.partially_paid,
+      paid: invoiceStats.paid,
+      cancelled: invoiceStats.cancelled + invoiceStats.cancelled_by_credit_note,
+    });
       setStatsData({
         totalAmount: invoiceStats.totalAmount,
         overdueAmount: invoiceStats.overdueAmount,
@@ -154,12 +154,28 @@ export default function Factures() {
 
   // Gérer le succès de création de facture
   const handleCreateInvoiceSuccess = (invoice: Invoice) => {
+    console.log("handleCreateInvoiceSuccess appelé avec:", invoice);
+    console.log("ID de la facture:", invoice.id);
+    
     // Rafraîchir la liste et les stats
     loadInvoices();
     loadStats();
     
-    // Naviguer vers l'éditeur pour ajouter les éléments
-    navigate(`/factures/edit/${invoice.id}`);
+    // S'assurer que l'ID est une chaîne valide avant de naviguer
+    if (invoice && invoice.id) {
+      console.log("Navigation vers:", `/factures/edit/${invoice.id}`);
+      // Utiliser un court délai pour s'assurer que la navigation se fait après la fermeture complète de la modale
+      setTimeout(() => {
+        navigate(`/factures/edit/${invoice.id}`);
+      }, 200);
+    } else {
+      console.error("ID de facture invalide:", invoice);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ouvrir l'éditeur: ID de facture invalide",
+        variant: "destructive",
+      });
+    }
   };
 
   // Delete invoice - ouvrir la modale de confirmation
@@ -368,14 +384,16 @@ export default function Factures() {
             onOpenChange={setPaymentModalOpen}
             invoice={selectedInvoice}
             onSuccess={async (updatedInvoice) => {
+              // Rafraîchir la liste et les stats en une seule fois
+              await Promise.all([
+                loadInvoices(),
+                loadStats()
+              ]);
+              
               toast({
                 title: "Succès",
                 description: "Le paiement a été enregistré avec succès",
               });
-              
-              // Rafraîchir la liste et les stats
-              loadInvoices();
-              loadStats();
             }}
           />
           
@@ -384,14 +402,16 @@ export default function Factures() {
             onOpenChange={setCreditNoteModalOpen}
             invoice={selectedInvoice}
             onSuccess={async (creditNote, originalInvoice) => {
+              // Rafraîchir la liste et les stats en une seule fois
+              await Promise.all([
+                loadInvoices(),
+                loadStats()
+              ]);
+              
               toast({
                 title: "Succès",
                 description: "L'avoir a été créé avec succès",
               });
-              
-              // Rafraîchir la liste et les stats
-              loadInvoices();
-              loadStats();
             }}
           />
 

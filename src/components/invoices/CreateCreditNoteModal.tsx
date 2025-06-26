@@ -199,6 +199,14 @@ export function CreateCreditNoteModal({
     return Object.keys(newErrors).length === 0;
   };
 
+  // Gestion de la fermeture
+  const handleClose = () => {
+    if (!loading) {
+      resetForm();
+      onOpenChange(false);
+    }
+  };
+
   // Créer l'avoir
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -217,17 +225,18 @@ export function CreateCreditNoteModal({
         description: `L'avoir a été créé avec succès`
       });
 
-      if (onSuccess) {
-        onSuccess(result.creditNote, result.originalInvoice);
-      }
+      // Fermer d'abord la modale pour éviter les problèmes de focus
+      handleClose();
       
-      onOpenChange(false);
+      // Puis appeler le callback de succès après une courte attente
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess(result.creditNote, result.originalInvoice);
+        }
+      }, 100);
     } catch (err: any) {
       console.error('Erreur lors de la création de l\'avoir:', err);
-      toast.error("Erreur", {
-        description: "Impossible de créer l'avoir"
-      });
-    } finally {
+      setError(err?.response?.data?.message || "Erreur lors de la création de l'avoir");
       setLoading(false);
     }
   };
@@ -257,7 +266,7 @@ export function CreateCreditNoteModal({
   const selectedReason = creditNoteReasons.find(reason => reason.value === formData.reason);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

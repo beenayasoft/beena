@@ -122,21 +122,31 @@ export function DeleteInvoiceModal({
         description: `La facture ${invoice.number} a été définitivement supprimée.`
       });
 
-      if (onSuccess) {
-        onSuccess();
-      }
-      
+      // Fermer d'abord la modale pour éviter les problèmes de focus
       onOpenChange(false);
+      
+      // Puis appeler le callback de succès après une courte attente
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess();
+        }
+      }, 100);
     } catch (err: any) {
       console.error('Erreur lors de la suppression de la facture:', err);
       setError(err?.response?.data?.message || "Erreur lors de la suppression de la facture");
-    } finally {
       setLoading(false);
     }
   };
 
+  // Gérer la fermeture manuelle de la modale
+  const handleCloseModal = () => {
+    if (!loading) {
+      onOpenChange(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleCloseModal}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -282,7 +292,7 @@ export function DeleteInvoiceModal({
         <DialogFooter className="pt-4 border-t">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={handleCloseModal}
             disabled={loading}
           >
             Annuler
