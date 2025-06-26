@@ -21,7 +21,13 @@ import {
   MoveVertical,
   ChevronDown,
   ChevronRight,
-  Percent
+  Percent,
+  Edit,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
+  XCircle,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,8 +52,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Invoice, InvoiceItem, VATRate, InvoiceStatus } from "@/lib/types/invoice";
-import { getInvoiceById, updateInvoice, validateInvoice } from "@/lib/api/invoices";
+import { getInvoiceById, updateInvoice, validateInvoice, changeInvoiceStatus, deleteInvoice } from "@/lib/api/invoices";
 import { tiersApi } from "@/lib/api/tiers";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
@@ -386,18 +400,17 @@ export default function InvoiceEditor() {
         } else if (invoice.id) {
           // Mettre à jour la facture existante
           const updatedInvoice = await updateInvoice(invoice.id, {
-            clientId: invoice.clientId!,
-            clientName: invoice.clientName,
-            clientAddress: invoice.clientAddress,
-            projectId: invoice.projectId,
-            projectName: invoice.projectName,
-            projectAddress: invoice.projectAddress,
-            issueDate: invoice.issueDate!,
-            dueDate: invoice.dueDate,
-            paymentTerms: invoice.paymentTerms,
+            tier: invoice.clientId!, // Utiliser tier au lieu de clientId pour le backend
+            client_name: invoice.clientName,
+            client_address: invoice.clientAddress,
+            project_name: invoice.projectName,
+            project_address: invoice.projectAddress,
+            issue_date: invoice.issueDate!,
+            due_date: invoice.dueDate,
+            payment_terms: invoice.paymentTerms,
             items: invoice.items,
             notes: invoice.notes,
-            termsAndConditions: invoice.termsAndConditions,
+            terms_and_conditions: invoice.termsAndConditions,
           });
           
           toast({
@@ -509,6 +522,56 @@ export default function InvoiceEditor() {
   // Toggle tax included/excluded view
   const handleToggleTaxIncluded = () => {
     setShowTaxIncluded(!showTaxIncluded);
+  };
+
+  // Handle change status
+  const handleChangeStatus = async (newStatus: InvoiceStatus) => {
+    try {
+      if (invoice.id) {
+        const updatedInvoice = await changeInvoiceStatus(invoice.id, newStatus);
+        setInvoice(updatedInvoice);
+        toast({
+          title: "Succès",
+          description: `La facture a été mise à jour à l'état ${newStatus}`,
+        });
+      }
+    } catch (err) {
+      console.error("Error changing invoice status:", err);
+      setError("Erreur lors de la mise à jour de l'état de la facture");
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour l'état de la facture",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle delete invoice
+  const handleDeleteInvoice = async () => {
+    if (!invoice.id) return;
+    
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette facture ? Cette action est irréversible.")) {
+      return;
+    }
+    
+    try {
+      setSaving(true);
+      await deleteInvoice(invoice.id);
+      toast({
+        title: "Succès",
+        description: "La facture a été supprimée avec succès",
+      });
+      navigate("/factures");
+    } catch (err) {
+      console.error("Error deleting invoice:", err);
+      setError("Erreur lors de la suppression de la facture");
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la facture",
+        variant: "destructive",
+      });
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -1067,6 +1130,52 @@ export default function InvoiceEditor() {
         </Button>
         
         <div className="flex items-center gap-2">
+          {!isNewInvoice && invoice.id && (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={handleDeleteInvoice}
+                disabled={saving}
+                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Supprimer
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Changer l'état
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Changer l'état de la facture</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleChangeStatus("draft")}>
+                    <Edit className="w-4 h-4 mr-2" /> Brouillon
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleChangeStatus("sent")}>
+                    <Send className="w-4 h-4 mr-2" /> Émise
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleChangeStatus("paid")}>
+                    <CheckCircle className="w-4 h-4 mr-2" /> Payée
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleChangeStatus("partially_paid")}>
+                    <Clock className="w-4 h-4 mr-2" /> Partiellement payée
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleChangeStatus("overdue")}>
+                    <AlertTriangle className="w-4 h-4 mr-2" /> En retard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleChangeStatus("cancelled")}>
+                    <XCircle className="w-4 h-4 mr-2" /> Annulée
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
+          
           <Button 
             variant="outline" 
             onClick={handleOpenPreview}
@@ -1078,7 +1187,7 @@ export default function InvoiceEditor() {
           <Button 
             variant="outline" 
             onClick={handleSave}
-            disabled={saving || !isDirty}
+            disabled={saving}
           >
             <Save className="w-4 h-4 mr-2" />
             {saving ? "Enregistrement..." : "Enregistrer"}
@@ -1087,7 +1196,7 @@ export default function InvoiceEditor() {
           <Button 
             className="benaya-button-primary"
             onClick={handleValidateAndSend}
-            disabled={saving}
+            disabled={saving || invoice.status !== "draft"}
           >
             <Send className="w-4 h-4 mr-2" />
             Valider et envoyer

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Invoice, InvoiceItem } from "@/lib/types/invoice";
 import { formatCurrency } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface InvoicePreviewProps {
   invoice: Invoice;
@@ -16,6 +17,14 @@ interface InvoicePreviewProps {
   };
 }
 
+// Constantes pour la pagination
+const ITEMS_PER_PAGE = 15; // Nombre d'éléments par page
+const A4_HEIGHT_MM = 297; // Hauteur d'une page A4 en mm
+const A4_WIDTH_MM = 210; // Largeur d'une page A4 en mm
+const HEADER_HEIGHT_MM = 60; // Hauteur approximative de l'en-tête
+const FOOTER_HEIGHT_MM = 60; // Hauteur approximative du pied de page
+const ITEM_HEIGHT_MM = 10; // Hauteur approximative d'un élément
+
 export function InvoicePreview({ 
   invoice, 
   appearanceSettings = {
@@ -29,6 +38,11 @@ export function InvoicePreview({
     showBankDetails: true,
   }
 }: InvoicePreviewProps) {
+  // État pour la pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [paginatedItems, setPaginatedItems] = useState<InvoiceItem[][]>([]);
+
   // Format a date
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
@@ -66,6 +80,71 @@ export function InvoicePreview({
     });
     
     return { totalHT, totalTTC };
+  };
+
+  // Calculer la pagination des éléments
+  useEffect(() => {
+    if (!invoice.items || invoice.items.length === 0) {
+      setPaginatedItems([[]]);
+      setTotalPages(1);
+      return;
+    }
+
+    // Calculer combien d'éléments peuvent tenir sur une page
+    const availableHeightMM = A4_HEIGHT_MM - HEADER_HEIGHT_MM - FOOTER_HEIGHT_MM;
+    const maxItemsPerPage = Math.floor(availableHeightMM / ITEM_HEIGHT_MM);
+    
+    // Obtenir tous les éléments à plat (sans hiérarchie pour la pagination)
+    const allItems = flattenItems(invoice.items);
+    
+    // Diviser les éléments en pages
+    const pages: InvoiceItem[][] = [];
+    for (let i = 0; i < allItems.length; i += maxItemsPerPage) {
+      pages.push(allItems.slice(i, i + maxItemsPerPage));
+    }
+    
+    if (pages.length === 0) {
+      pages.push([]);
+    }
+    
+    setPaginatedItems(pages);
+    setTotalPages(pages.length);
+  }, [invoice.items]);
+
+  // Aplatir la structure hiérarchique des éléments pour la pagination
+  const flattenItems = (items: InvoiceItem[]): InvoiceItem[] => {
+    const result: InvoiceItem[] = [];
+    
+    // Fonction récursive pour parcourir la hiérarchie
+    const processItems = (itemsList: InvoiceItem[], level = 0) => {
+      for (const item of itemsList) {
+        result.push(item);
+        
+        // Si c'est un chapitre ou une section, traiter ses enfants
+        if ((item.type === 'chapter' || item.type === 'section') && item.id) {
+          const childItems = getSectionItems(item.id);
+          processItems(childItems, level + 1);
+        }
+      }
+    };
+    
+    // Commencer par les éléments racine
+    processItems(getRootItems());
+    return result;
+  };
+
+  // Naviguer vers la page précédente
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Naviguer vers la page suivante
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
   };
 
   // Render hierarchical items
@@ -174,7 +253,7 @@ export function InvoicePreview({
   return (
     <div className="w-full h-full bg-white text-black overflow-auto">
       {/* A4 container with proper aspect ratio */}
-      <div className="w-full mx-auto" style={{ maxWidth: "210mm", minHeight: "297mm" }}>
+      <div className="w-full mx-auto relative" style={{ maxWidth: "210mm", minHeight: "297mm" }}>
         {/* Header */}
         <div className={`p-8 ${templateStyles.headerBorder} ${templateStyles.headerBg}`}>
           <div className="flex justify-between">
@@ -240,13 +319,17 @@ export function InvoicePreview({
                     <span>{invoice.quoteNumber}</span>
                   </div>
                 )}
+                <div className="flex justify-end gap-2 mt-2">
+                  <span className="font-medium">Page:</span>
+                  <span>{currentPage} / {totalPages}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Client and Project Info */}
-        {(appearanceSettings.showClientAddress || appearanceSettings.showProjectInfo) && (
+        {/* Client and Project Info - Afficher uniquement sur la première page */}
+        {currentPage === 1 && (appearanceSettings.showClientAddress || appearanceSettings.showProjectInfo) && (
           <div className="p-8 border-b border-neutral-200">
             <div className="flex justify-between">
               {/* Client Info */}
@@ -282,7 +365,7 @@ export function InvoicePreview({
           </div>
         )}
 
-        {/* Invoice Items */}
+        {/* Invoice Items - Afficher les éléments de la page courante */}
         <div className="p-8">
           <table className={`w-full border-collapse ${templateStyles.tableBorder}`}>
             <thead>
@@ -295,68 +378,103 @@ export function InvoicePreview({
               </tr>
             </thead>
             <tbody>
-              {renderItems(getRootItems())}
+              {paginatedItems[currentPage - 1] && paginatedItems[currentPage - 1].length > 0 ? (
+                renderItems(paginatedItems[currentPage - 1])
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-neutral-500">
+                    Aucun élément à afficher
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 
-          {/* Totals */}
-          <div className="mt-8 flex justify-end">
-            <div className="w-64 space-y-2">
-              <div className="flex justify-between py-2 border-b border-neutral-200">
-                <span className="font-medium">Total HT:</span>
-                <span>{formatCurrency(invoice.totalHT || 0)} MAD</span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-neutral-200">
-                <span className="font-medium">Total TVA:</span>
-                <span>{formatCurrency(invoice.totalVAT || 0)} MAD</span>
-              </div>
-              <div className="flex justify-between py-2 text-lg font-bold" style={{ color: appearanceSettings.primaryColor }}>
-                <span>Total TTC:</span>
-                <span>{formatCurrency(invoice.totalTTC || 0)} MAD</span>
+          {/* Totals - Afficher uniquement sur la dernière page */}
+          {currentPage === totalPages && (
+            <div className="mt-8 flex justify-end">
+              <div className="w-64 space-y-2">
+                <div className="flex justify-between py-2 border-b border-neutral-200">
+                  <span className="font-medium">Total HT:</span>
+                  <span>{formatCurrency(invoice.totalHT || 0)} MAD</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-neutral-200">
+                  <span className="font-medium">Total TVA:</span>
+                  <span>{formatCurrency(invoice.totalVAT || 0)} MAD</span>
+                </div>
+                <div className="flex justify-between py-2 text-lg font-bold" style={{ color: appearanceSettings.primaryColor }}>
+                  <span>Total TTC:</span>
+                  <span>{formatCurrency(invoice.totalTTC || 0)} MAD</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="p-8 mt-auto">
-          {/* Payment Info */}
-          {appearanceSettings.showPaymentTerms && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Conditions de paiement</h3>
-              <p className="text-sm text-neutral-600">
-                {invoice.termsAndConditions || "Paiement à 30 jours."}
-              </p>
-            </div>
-          )}
-
-          {/* Bank Details */}
-          {appearanceSettings.showBankDetails && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Coordonnées bancaires</h3>
-              <div className="text-sm text-neutral-600">
-                <p>IBAN: FR76 1234 5678 9012 3456 7890 123</p>
-                <p>BIC: ABCDEFGHIJK</p>
-                <p>Banque: Banque Exemple</p>
+        {/* Footer - Afficher uniquement sur la dernière page */}
+        {currentPage === totalPages && (
+          <div className="p-8 mt-auto">
+            {/* Payment Info */}
+            {appearanceSettings.showPaymentTerms && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Conditions de paiement</h3>
+                <p className="text-sm text-neutral-600">
+                  {invoice.termsAndConditions || "Paiement à 30 jours."}
+                </p>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Notes */}
-          {appearanceSettings.showNotes && invoice.notes && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Notes</h3>
-              <p className="text-sm text-neutral-600">{invoice.notes}</p>
-            </div>
-          )}
+            {/* Bank Details */}
+            {appearanceSettings.showBankDetails && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Coordonnées bancaires</h3>
+                <div className="text-sm text-neutral-600">
+                  <p>IBAN: FR76 1234 5678 9012 3456 7890 123</p>
+                  <p>BIC: ABCDEFGHIJK</p>
+                  <p>Banque: Banque Exemple</p>
+                </div>
+              </div>
+            )}
 
-          {/* Legal Mentions */}
-          <div className="text-xs text-neutral-500 mt-8 pt-4 border-t border-neutral-200">
-            <p>Benaya Construction - SIRET: 123 456 789 00012 - TVA: FR12345678901</p>
-            <p>123 Rue de la Construction, 75001 Paris, France</p>
-            <p>En cas de retard de paiement, une pénalité de 3 fois le taux d'intérêt légal sera appliquée.</p>
+            {/* Notes */}
+            {appearanceSettings.showNotes && invoice.notes && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2" style={{ color: appearanceSettings.primaryColor }}>Notes</h3>
+                <p className="text-sm text-neutral-600">{invoice.notes}</p>
+              </div>
+            )}
+
+            {/* Legal Mentions */}
+            <div className="text-xs text-neutral-500 mt-8 pt-4 border-t border-neutral-200">
+              <p>Benaya Construction - SIRET: 123 456 789 00012 - TVA: FR12345678901</p>
+              <p>123 Rue de la Construction, 75001 Paris, France</p>
+              <p>En cas de retard de paiement, une pénalité de 3 fois le taux d'intérêt légal sera appliquée.</p>
+            </div>
           </div>
-        </div>
+        )}
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 py-4 border-t border-neutral-200">
+            <button 
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              className={`p-2 rounded-full ${currentPage === 1 ? 'text-neutral-300' : 'text-benaya-600 hover:bg-benaya-50'}`}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-medium">
+              Page {currentPage} sur {totalPages}
+            </span>
+            <button 
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              className={`p-2 rounded-full ${currentPage === totalPages ? 'text-neutral-300' : 'text-benaya-600 hover:bg-benaya-50'}`}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

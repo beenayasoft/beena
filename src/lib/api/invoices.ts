@@ -182,7 +182,7 @@ export const createInvoice = async (data: CreateInvoiceRequest): Promise<Invoice
   console.log("Appel de createInvoice avec les données:", data);
   
   try {
-    const response = await apiClient.post('/invoices/', data);
+  const response = await apiClient.post('/invoices/', data);
     
     // S'assurer que la réponse est correctement transformée et que l'ID est présent
     const invoice = response.data;
@@ -278,23 +278,117 @@ export const createInvoice = async (data: CreateInvoiceRequest): Promise<Invoice
  * Met à jour une facture
  */
 export const updateInvoice = async (id: string, data: Partial<CreateInvoiceRequest>): Promise<Invoice> => {
+  try {
+    console.log(`Mise à jour de la facture ${id} avec les données:`, data);
   const response = await apiClient.put(`/invoices/${id}/`, data);
-  return response.data;
+    
+    // Adapter les données du backend au format frontend
+    const invoice = response.data;
+    return {
+      ...invoice,
+      clientId: invoice.client_id || invoice.tier,
+      clientName: invoice.client_name,
+      clientAddress: invoice.client_address,
+      projectId: invoice.project_id,
+      projectName: invoice.project_name,
+      projectAddress: invoice.project_address,
+      issueDate: invoice.issue_date,
+      dueDate: invoice.due_date,
+      paymentTerms: invoice.payment_terms,
+      termsAndConditions: invoice.terms_and_conditions,
+      totalHT: invoice.total_ht,
+      totalVAT: invoice.total_vat,
+      totalTTC: invoice.total_ttc,
+      paidAmount: invoice.paid_amount,
+      remainingAmount: invoice.remaining_amount,
+      quoteId: invoice.quote_id,
+      quoteNumber: invoice.quote_number,
+      creditNoteId: invoice.credit_note_id,
+      originalInvoiceId: invoice.original_invoice_id,
+      createdAt: invoice.created_at,
+      updatedAt: invoice.updated_at,
+      createdBy: invoice.created_by,
+      updatedBy: invoice.updated_by,
+      // Adapter les éléments si présents
+      items: invoice.items ? invoice.items.map((item: any) => ({
+        ...item,
+        parentId: item.parent_id,
+        unitPrice: item.unit_price,
+        vatRate: item.vat_rate,
+        totalHT: item.total_ht,
+        totalTTC: item.total_ttc,
+        workId: item.work_id
+      })) : []
+    };
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de la facture:", error);
+    throw error;
+  }
 };
 
 /**
  * Supprime une facture (brouillon uniquement)
  */
 export const deleteInvoice = async (id: string): Promise<void> => {
+  try {
+    console.log(`Suppression de la facture ${id}`);
   await apiClient.delete(`/invoices/${id}/`);
+    console.log(`Facture ${id} supprimée avec succès`);
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la facture:", error);
+    throw error;
+  }
 };
 
 /**
  * Valide et émet une facture (US 5.3)
  */
 export const validateInvoice = async (id: string, data?: { issue_date?: string }): Promise<Invoice> => {
+  try {
+    console.log(`Validation de la facture ${id}`);
   const response = await apiClient.post(`/invoices/${id}/validate/`, data || {});
-  return response.data;
+    
+    // Adapter les données du backend au format frontend
+    const invoice = response.data;
+    return {
+      ...invoice,
+      clientId: invoice.client_id || invoice.tier,
+      clientName: invoice.client_name,
+      clientAddress: invoice.client_address,
+      projectId: invoice.project_id,
+      projectName: invoice.project_name,
+      projectAddress: invoice.project_address,
+      issueDate: invoice.issue_date,
+      dueDate: invoice.due_date,
+      paymentTerms: invoice.payment_terms,
+      termsAndConditions: invoice.terms_and_conditions,
+      totalHT: invoice.total_ht,
+      totalVAT: invoice.total_vat,
+      totalTTC: invoice.total_ttc,
+      paidAmount: invoice.paid_amount,
+      remainingAmount: invoice.remaining_amount,
+      quoteId: invoice.quote_id,
+      quoteNumber: invoice.quote_number,
+      creditNoteId: invoice.credit_note_id,
+      originalInvoiceId: invoice.original_invoice_id,
+      createdAt: invoice.created_at,
+      updatedAt: invoice.updated_at,
+      createdBy: invoice.created_by,
+      updatedBy: invoice.updated_by,
+      items: invoice.items ? invoice.items.map((item: any) => ({
+        ...item,
+        parentId: item.parent_id,
+        unitPrice: item.unit_price,
+        vatRate: item.vat_rate,
+        totalHT: item.total_ht,
+        totalTTC: item.total_ttc,
+        workId: item.work_id
+      })) : []
+    };
+  } catch (error) {
+    console.error("Erreur lors de la validation de la facture:", error);
+    throw error;
+  }
 };
 
 /**
@@ -406,16 +500,72 @@ export const getCreditNotePreview = async (id: string, data: {
 };
 
 /**
+ * Change l'état d'une facture directement
+ */
+export const changeInvoiceStatus = async (id: string, status: InvoiceStatus): Promise<Invoice> => {
+  try {
+    console.log(`Changement de statut de la facture ${id} vers ${status}`);
+    const response = await apiClient.patch(`/invoices/${id}/`, { status });
+    
+    // Adapter les données du backend au format frontend
+    const invoice = response.data;
+    return {
+      ...invoice,
+      clientId: invoice.client_id || invoice.tier,
+      clientName: invoice.client_name,
+      clientAddress: invoice.client_address,
+      projectId: invoice.project_id,
+      projectName: invoice.project_name,
+      projectAddress: invoice.project_address,
+      issueDate: invoice.issue_date,
+      dueDate: invoice.due_date,
+      paymentTerms: invoice.payment_terms,
+      termsAndConditions: invoice.terms_and_conditions,
+      totalHT: invoice.total_ht,
+      totalVAT: invoice.total_vat,
+      totalTTC: invoice.total_ttc,
+      paidAmount: invoice.paid_amount,
+      remainingAmount: invoice.remaining_amount,
+      quoteId: invoice.quote_id,
+      quoteNumber: invoice.quote_number,
+      creditNoteId: invoice.credit_note_id,
+      originalInvoiceId: invoice.original_invoice_id,
+      createdAt: invoice.created_at,
+      updatedAt: invoice.updated_at,
+      createdBy: invoice.created_by,
+      updatedBy: invoice.updated_by,
+      items: invoice.items ? invoice.items.map((item: any) => ({
+        ...item,
+        parentId: item.parent_id,
+        unitPrice: item.unit_price,
+        vatRate: item.vat_rate,
+        totalHT: item.total_ht,
+        totalTTC: item.total_ttc,
+        workId: item.work_id
+      })) : []
+    };
+  } catch (error) {
+    console.error(`Erreur lors du changement de statut de la facture vers ${status}:`, error);
+    throw error;
+  }
+};
+
+/**
  * Export d'une facture en PDF
  */
-export const exportInvoicePdf = async (id: string): Promise<{
-  file_url: string;
-  file_name: string;
-}> => {
+export const exportInvoicePdf = async (id: string): Promise<Blob> => {
+  try {
   const response = await apiClient.post(`/invoices/${id}/export/`, {
     format: 'pdf'
+    }, {
+      responseType: 'blob'
   });
+    
   return response.data;
+  } catch (error) {
+    console.error("Erreur lors de l'export PDF de la facture:", error);
+    throw error;
+  }
 };
 
 /**
