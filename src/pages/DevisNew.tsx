@@ -245,11 +245,27 @@ export default function DevisNew() {
     try {
       await quotesApi.markAsRejected(quote.id);
       toast.success("Devis refusé");
+      
+      // Recharger les données du devis pour vérifier s'il est lié à une opportunité
+      const updatedQuote = await quotesApi.getQuote(quote.id);
+      
       // Recharger avec les paramètres actuels ET les stats
       await Promise.all([
         loadQuotes(currentPage, searchQuery, activeTab),
         loadGlobalStats(searchQuery)
       ]);
+      
+      // Si le devis est associé à une opportunité, naviguer vers la page des opportunités
+      if (updatedQuote.opportunity_id) {
+        // Définir un indicateur dans sessionStorage pour indiquer que l'on vient de rejeter un devis
+        sessionStorage.setItem('quoteRejected', 'true');
+        
+        // Attendre un court moment pour que l'API ait le temps de mettre à jour l'opportunité
+        setTimeout(() => {
+          navigate("/opportunities");
+          toast.success("L'opportunité associée a été marquée comme perdue");
+        }, 500);
+      }
     } catch (error) {
       console.error("Erreur lors du refus:", error);
       toast.error("Erreur lors du refus du devis");

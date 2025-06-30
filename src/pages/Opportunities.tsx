@@ -123,6 +123,38 @@ export default function Opportunities() {
     };
     
     loadOpportunities();
+    
+    // Vérifier si on vient de marquer un devis comme refusé
+    const comesFromQuoteRejection = sessionStorage.getItem('quoteRejected');
+    if (comesFromQuoteRejection) {
+      // Supprimer l'indicateur pour ne pas recharger à chaque fois
+      sessionStorage.removeItem('quoteRejected');
+      
+      // Attendre un court instant pour que l'API ait le temps de mettre à jour l'opportunité
+      setTimeout(() => {
+        loadOpportunities();
+        toast({
+          title: "Opportunités mises à jour",
+          description: "Le statut des opportunités a été mis à jour suite au refus du devis",
+        });
+      }, 500);
+    }
+    
+    // Vérifier si on vient de marquer un devis comme accepté
+    const comesFromQuoteAcceptation = sessionStorage.getItem('quoteAccepted');
+    if (comesFromQuoteAcceptation) {
+      // Supprimer l'indicateur pour ne pas recharger à chaque fois
+      sessionStorage.removeItem('quoteAccepted');
+      
+      // Attendre un court instant pour que l'API ait le temps de mettre à jour l'opportunité
+      setTimeout(() => {
+        loadOpportunities();
+        toast({
+          title: "Opportunités mises à jour",
+          description: "Le statut des opportunités a été mis à jour suite à l'acceptation du devis",
+        });
+      }, 500);
+    }
   }, []);
 
   // 🚀 Gestionnaire d'échappement clavier pour fermer les modales

@@ -25,6 +25,7 @@ import { Work, Material, Labor } from "@/lib/types/workLibrary";
 import { libraryApi } from "@/lib/api/library";
 import { toast } from "sonner";
 
+// Interface pour la version complète avec Dialog
 interface QuoteItemFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -33,6 +34,34 @@ interface QuoteItemFormProps {
   isEditing?: boolean;
 }
 
+// Interface pour la version sans Dialog (pour l'intégration directe)
+interface QuoteItemFormInlineProps {
+  onSave: (item: EditorQuoteItem) => void;
+  onCancel: () => void;
+  initialData?: Partial<EditorQuoteItem>;
+}
+
+// Composant de contenu partagé entre les deux versions du formulaire
+interface QuoteItemFormContentProps {
+  formData: Partial<EditorQuoteItem>;
+  errors: Record<string, string>;
+  handleInputChange: (field: string, value: string | number) => void;
+  isEditing: boolean;
+  showLibrary: boolean;
+  setShowLibrary: (show: boolean) => void;
+  libraryLoading: boolean;
+  loadLibraryItems: () => Promise<void>;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  getFilteredLibraryItems: () => (Work | Material | Labor)[];
+  getItemType: (item: Work | Material | Labor) => string;
+  handleSelectLibraryItem: (item: Work | Material | Labor) => void;
+  selectedLibraryItem: Work | Material | Labor | null;
+  setSelectedLibraryItem: (item: Work | Material | Labor | null) => void;
+  libraryItems: (Work | Material | Labor)[];
+}
+
+// Version complète avec son propre Dialog
 export function QuoteItemForm({
   open,
   onOpenChange,
@@ -40,7 +69,8 @@ export function QuoteItemForm({
   item,
   isEditing = false,
 }: QuoteItemFormProps) {
-  const [formData, setFormData] = useState<Partial<EditorQuoteItem>>({
+  const [formData, setFormData] = useState<Partial<EditorQuoteItem>>(
+    item || {
     designation: "",
     description: "",
     unit: "unité",
@@ -50,7 +80,8 @@ export function QuoteItemForm({
     discount: 0,
     type: "product",
     margin: 20,
-  });
+    }
+  );
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showLibrary, setShowLibrary] = useState(false);
@@ -286,6 +317,294 @@ export function QuoteItemForm({
           </DialogDescription>
         </DialogHeader>
 
+        <QuoteItemFormContent 
+          formData={formData}
+          errors={errors}
+          handleInputChange={handleInputChange}
+          isEditing={isEditing}
+          showLibrary={showLibrary}
+          setShowLibrary={setShowLibrary}
+          libraryLoading={libraryLoading}
+          loadLibraryItems={loadLibraryItems}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          getFilteredLibraryItems={getFilteredLibraryItems}
+          getItemType={getItemType}
+          handleSelectLibraryItem={handleSelectLibraryItem}
+          selectedLibraryItem={selectedLibraryItem}
+          setSelectedLibraryItem={setSelectedLibraryItem}
+          libraryItems={libraryItems}
+        />
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="button" onClick={handleSubmit}>
+            {isEditing ? "Mettre à jour" : "Ajouter"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Version inline pour l'intégration directe dans d'autres composants
+export function QuoteItemFormInline({
+  onSave,
+  onCancel,
+  initialData
+}: QuoteItemFormInlineProps) {
+  const [formData, setFormData] = useState<Partial<EditorQuoteItem>>(
+    initialData || {
+      designation: "",
+      description: "",
+      unit: "unité",
+      quantity: 1,
+      unitPrice: 0,
+      vat_rate: "20",
+      discount: 0,
+      type: "product",
+      margin: 20,
+    }
+  );
+  
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLibraryItem, setSelectedLibraryItem] = useState<Work | Material | Labor | null>(null);
+  
+  // Charger les données de la bibliothèque
+  const [libraryItems, setLibraryItems] = useState<(Work | Material | Labor)[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  
+  // Charger la bibliothèque depuis l'API
+  const loadLibraryItems = async () => {
+    try {
+      setLibraryLoading(true);
+      const allItems = await libraryApi.getAllLibraryItems();
+      setLibraryItems(allItems);
+    } catch (error) {
+      console.error("Erreur lors du chargement de la bibliothèque:", error);
+      toast.error("Erreur lors du chargement de la bibliothèque");
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+  
+  // Calculer les totaux lorsque les valeurs changent (avec protection NaN)
+  useEffect(() => {
+    if (formData.quantity !== undefined && formData.unitPrice !== undefined && formData.vat_rate !== undefined) {
+      const quantity = Number(formData.quantity) || 0;
+      const unitPrice = Number(formData.unitPrice) || 0;
+      const vatRate = parseFloat(formData.vat_rate) || 0;
+      const discount = Number(formData.discount) || 0;
+      
+      // 🛡️ VÉRIFICATION : S'assurer qu'aucune valeur n'est NaN
+      if (isNaN(quantity) || isNaN(unitPrice) || isNaN(vatRate) || isNaN(discount)) {
+        console.warn('🚨 Valeur NaN détectée dans les calculs, utilisation de 0');
+        return;
+      }
+      
+      // Calculer le prix après remise
+      const discountedUnitPrice = unitPrice * (1 - discount / 100);
+      
+      // Calculer les totaux
+      const totalHt = quantity * discountedUnitPrice;
+      const totalTtc = totalHt * (1 + vatRate / 100);
+      
+      // ✅ VÉRIFICATION FINALE avant sauvegarde
+      if (!isNaN(totalHt) && !isNaN(totalTtc)) {
+        setFormData(prev => ({
+          ...prev,
+          totalHt,
+          totalTtc,
+        }));
+      }
+    }
+  }, [formData.quantity, formData.unitPrice, formData.vat_rate, formData.discount]);
+  
+  // Gérer les changements de champs avec protection contre NaN
+  const handleInputChange = (field: string, value: string | number) => {
+    // 🛡️ PROTECTION CONTRE NaN pour les champs numériques
+    let safeValue = value;
+    if (typeof value === 'number' && isNaN(value)) {
+      safeValue = 0; // Valeur par défaut sécurisée au lieu de NaN
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      [field]: safeValue,
+    }));
+    setErrors(prev => ({ ...prev, [field]: "" }));
+  };
+  
+  // Valider le formulaire
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.designation) {
+      newErrors.designation = "La désignation est requise";
+    }
+    
+    if (formData.quantity === undefined || formData.quantity <= 0) {
+      newErrors.quantity = "La quantité doit être supérieure à 0";
+    }
+    
+    if (formData.unitPrice === undefined) {
+      newErrors.unitPrice = "Le prix unitaire est requis";
+    }
+    
+    if (formData.vat_rate === undefined) {
+      newErrors.vat_rate = "Le taux de TVA est requis";
+    }
+    
+    if (formData.discount !== undefined && (formData.discount < 0 || formData.discount > 100)) {
+      newErrors.discount = "La remise doit être entre 0 et 100%";
+    }
+    
+    if (formData.margin !== undefined && (formData.margin < 0 || formData.margin > 100)) {
+      newErrors.margin = "La marge doit être entre 0 et 100%";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  // Soumettre le formulaire
+  const handleSubmit = () => {
+    if (validateForm()) {
+      const newItem: EditorQuoteItem = {
+        id: initialData?.id || `item-${Date.now()}`,
+        type: formData.type as "product" | "service" | "work" | "chapter" | "section",
+        position: initialData?.position || 0,
+        designation: formData.designation || "",
+        description: formData.description || "",
+        unit: formData.unit || "unité",
+        quantity: formData.quantity || 0,
+        unitPrice: formData.unitPrice || 0,
+        discount: formData.discount || 0,
+        vat_rate: formData.vat_rate || "20",
+        margin: formData.margin,
+        totalHt: formData.totalHt || 0,
+        totalTtc: formData.totalTtc || 0,
+        work_id: formData.work_id,
+        parent: formData.parent,
+      };
+      
+      onSave(newItem);
+    }
+  };
+  
+  // Sélectionner un élément de la bibliothèque
+  const handleSelectLibraryItem = (libraryItem: Work | Material | Labor) => {
+    setSelectedLibraryItem(libraryItem);
+    
+    let itemType: "product" | "service" | "work" = "product";
+    let unitPrice = 0;
+    let margin = 20;
+    
+    if ("components" in libraryItem) {
+      // C'est un ouvrage
+      itemType = "work";
+      unitPrice = libraryItem.recommendedPrice;
+      margin = libraryItem.margin;
+    } else if ("vatRate" in libraryItem) {
+      // C'est un matériau
+      itemType = "product";
+      unitPrice = libraryItem.unitPrice;
+    } else {
+      // C'est de la main d'œuvre
+      itemType = "service";
+      unitPrice = libraryItem.unitPrice;
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      designation: libraryItem.name,
+      description: libraryItem.description || "",
+      unit: libraryItem.unit,
+      unitPrice,
+      type: itemType,
+      margin,
+      workId: "components" in libraryItem ? libraryItem.id : undefined,
+    }));
+    
+    setShowLibrary(false);
+  };
+  
+  // Filtrer les éléments de la bibliothèque
+  const getFilteredLibraryItems = () => {
+    if (!searchQuery) return libraryItems;
+    
+    const query = searchQuery.toLowerCase();
+    return libraryItems.filter(item => {
+      const nameMatch = item.name.toLowerCase().includes(query);
+      const descMatch = item.description?.toLowerCase().includes(query) || false;
+      const refMatch = "reference" in item && item.reference ? item.reference.toLowerCase().includes(query) : false;
+      return nameMatch || descMatch || refMatch;
+    });
+  };
+  
+  // Obtenir le type d'un élément de la bibliothèque
+  const getItemType = (item: Work | Material | Labor): string => {
+    if ("components" in item) return "Ouvrage";
+    if ("vatRate" in item) return "Matériau";
+    return "Main d'œuvre";
+  };
+
+  return (
+    <div>
+      <QuoteItemFormContent 
+        formData={formData}
+        errors={errors}
+        handleInputChange={handleInputChange}
+        isEditing={!!initialData}
+        showLibrary={showLibrary}
+        setShowLibrary={setShowLibrary}
+        libraryLoading={libraryLoading}
+        loadLibraryItems={loadLibraryItems}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        getFilteredLibraryItems={getFilteredLibraryItems}
+        getItemType={getItemType}
+        handleSelectLibraryItem={handleSelectLibraryItem}
+        selectedLibraryItem={selectedLibraryItem}
+        setSelectedLibraryItem={setSelectedLibraryItem}
+        libraryItems={libraryItems}
+      />
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Annuler
+        </Button>
+        <Button type="button" onClick={handleSubmit}>
+          {initialData ? "Mettre à jour" : "Ajouter"}
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
+function QuoteItemFormContent({
+  formData,
+  errors,
+  handleInputChange,
+  isEditing,
+  showLibrary,
+  setShowLibrary,
+  libraryLoading,
+  loadLibraryItems,
+  searchQuery,
+  setSearchQuery,
+  getFilteredLibraryItems,
+  getItemType,
+  handleSelectLibraryItem,
+  selectedLibraryItem,
+  setSelectedLibraryItem,
+  libraryItems
+}: QuoteItemFormContentProps) {
+  return (
         <div className="space-y-6 py-4">
           {/* Sélection depuis la bibliothèque */}
           {!isEditing && (
@@ -387,6 +706,8 @@ export function QuoteItemForm({
 
           {/* Informations de base */}
           <div className="space-y-4">
+        <h3 className="text-lg font-medium">Informations de base</h3>
+        
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="designation" className={errors.designation ? "text-red-500" : ""}>
@@ -394,13 +715,13 @@ export function QuoteItemForm({
                 </Label>
                 <Input
                   id="designation"
-                  value={formData.designation}
+              value={formData.designation || ""}
                   onChange={(e) => handleInputChange("designation", e.target.value)}
                   className={`benaya-input ${errors.designation ? "border-red-500" : ""}`}
-                  placeholder="Nom de l'article ou service"
+              placeholder="Ex: Installation électrique"
                 />
                 {errors.designation && (
-                  <p className="text-xs text-red-500 mt-1 flex items-center">
+              <p className="text-xs text-red-500 flex items-center">
                     <AlertCircle className="w-3 h-3 mr-1" />
                     {errors.designation}
                   </p>
@@ -408,38 +729,47 @@ export function QuoteItemForm({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="type">Type</Label>
+            <Label htmlFor="type">
+              Type d'élément
+            </Label>
                 <Select 
-                  value={formData.type} 
+              value={formData.type || "product"}
                   onValueChange={(value) => handleInputChange("type", value)}
                 >
                   <SelectTrigger className="benaya-input">
-                    <SelectValue placeholder="Type d'élément" />
+                <SelectValue placeholder="Sélectionner un type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="product">Produit</SelectItem>
                     <SelectItem value="service">Service</SelectItem>
                     <SelectItem value="work">Ouvrage</SelectItem>
+                <SelectItem value="chapter">Chapitre</SelectItem>
+                <SelectItem value="section">Section</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description (optionnel)</Label>
+          <Label htmlFor="description">
+            Description
+          </Label>
               <Textarea
                 id="description"
-                value={formData.description}
+            value={formData.description || ""}
                 onChange={(e) => handleInputChange("description", e.target.value)}
                 className="benaya-input resize-none"
-                placeholder="Description détaillée"
+            placeholder="Description détaillée de l'élément"
                 rows={3}
               />
             </div>
           </div>
 
-          {/* Quantité, prix et TVA */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Quantité et prix */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Quantité et prix</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="quantity" className={errors.quantity ? "text-red-500" : ""}>
                 Quantité <span className="text-red-500">*</span>
@@ -449,12 +779,13 @@ export function QuoteItemForm({
                 type="number"
                 min="0.01"
                 step="0.01"
-                value={formData.quantity}
-                onChange={(e) => handleInputChange("quantity", e.target.value === "" ? 0 : parseFloat(e.target.value))}
+              value={formData.quantity || ""}
+              onChange={(e) => handleInputChange("quantity", parseFloat(e.target.value))}
                 className={`benaya-input ${errors.quantity ? "border-red-500" : ""}`}
+              placeholder="1"
               />
               {errors.quantity && (
-                <p className="text-xs text-red-500 mt-1 flex items-center">
+              <p className="text-xs text-red-500 flex items-center">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   {errors.quantity}
                 </p>
@@ -462,23 +793,26 @@ export function QuoteItemForm({
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="unit">Unité</Label>
+            <Label htmlFor="unit">
+              Unité
+            </Label>
               <Select 
-                value={formData.unit} 
+              value={formData.unit || "unité"}
                 onValueChange={(value) => handleInputChange("unit", value)}
               >
                 <SelectTrigger className="benaya-input">
-                  <SelectValue placeholder="Unité" />
+                <SelectValue placeholder="Sélectionner une unité" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unité">unité</SelectItem>
-                  <SelectItem value="h">heure</SelectItem>
-                  <SelectItem value="jour">jour</SelectItem>
-                  <SelectItem value="m²">m²</SelectItem>
-                  <SelectItem value="m³">m³</SelectItem>
-                  <SelectItem value="ml">ml</SelectItem>
-                  <SelectItem value="kg">kg</SelectItem>
-                  <SelectItem value="forfait">forfait</SelectItem>
+                <SelectItem value="unité">Unité</SelectItem>
+                <SelectItem value="m">Mètre (m)</SelectItem>
+                <SelectItem value="m²">Mètre carré (m²)</SelectItem>
+                <SelectItem value="m³">Mètre cube (m³)</SelectItem>
+                <SelectItem value="kg">Kilogramme (kg)</SelectItem>
+                <SelectItem value="h">Heure (h)</SelectItem>
+                <SelectItem value="jour">Jour</SelectItem>
+                <SelectItem value="forfait">Forfait</SelectItem>
+                <SelectItem value="lot">Lot</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -492,48 +826,47 @@ export function QuoteItemForm({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.unitPrice}
-                onChange={(e) => handleInputChange("unitPrice", e.target.value === "" ? 0 : parseFloat(e.target.value))}
+              value={formData.unitPrice || ""}
+              onChange={(e) => handleInputChange("unitPrice", parseFloat(e.target.value))}
                 className={`benaya-input ${errors.unitPrice ? "border-red-500" : ""}`}
+              placeholder="0.00"
               />
               {errors.unitPrice && (
-                <p className="text-xs text-red-500 mt-1 flex items-center">
+              <p className="text-xs text-red-500 flex items-center">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   {errors.unitPrice}
                 </p>
               )}
+          </div>
             </div>
             
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vat_rate" className={errors.vat_rate ? "text-red-500" : ""}>
                 TVA (%) <span className="text-red-500">*</span>
               </Label>
               <Select 
-                value={formData.vat_rate?.toString()} 
+              value={formData.vat_rate || "20"}
                 onValueChange={(value) => handleInputChange("vat_rate", value)}
               >
                 <SelectTrigger className={`benaya-input ${errors.vat_rate ? "border-red-500" : ""}`}>
-                  <SelectValue placeholder="Taux de TVA" />
+                <SelectValue placeholder="Sélectionner un taux" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="0">0%</SelectItem>
-                  <SelectItem value="7">7%</SelectItem>
+                <SelectItem value="5.5">5.5%</SelectItem>
                   <SelectItem value="10">10%</SelectItem>
-                  <SelectItem value="14">14%</SelectItem>
                   <SelectItem value="20">20%</SelectItem>
                 </SelectContent>
               </Select>
               {errors.vat_rate && (
-                <p className="text-xs text-red-500 mt-1 flex items-center">
+              <p className="text-xs text-red-500 flex items-center">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   {errors.vat_rate}
                 </p>
               )}
-            </div>
           </div>
 
-          {/* Remise et marge */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="discount" className={errors.discount ? "text-red-500" : ""}>
                 Remise (%)
@@ -543,13 +876,13 @@ export function QuoteItemForm({
                 type="number"
                 min="0"
                 max="100"
-                step="0.01"
-                value={formData.discount || 0}
-                onChange={(e) => handleInputChange("discount", e.target.value === "" ? 0 : parseFloat(e.target.value))}
+              value={formData.discount || ""}
+              onChange={(e) => handleInputChange("discount", parseFloat(e.target.value))}
                 className={`benaya-input ${errors.discount ? "border-red-500" : ""}`}
+              placeholder="0"
               />
               {errors.discount && (
-                <p className="text-xs text-red-500 mt-1 flex items-center">
+              <p className="text-xs text-red-500 flex items-center">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   {errors.discount}
                 </p>
@@ -565,53 +898,34 @@ export function QuoteItemForm({
                 type="number"
                 min="0"
                 max="100"
-                step="0.01"
-                value={formData.margin || 0}
-                onChange={(e) => handleInputChange("margin", e.target.value === "" ? 0 : parseFloat(e.target.value))}
+              value={formData.margin || ""}
+              onChange={(e) => handleInputChange("margin", parseFloat(e.target.value))}
                 className={`benaya-input ${errors.margin ? "border-red-500" : ""}`}
+              placeholder="20"
               />
               {errors.margin && (
-                <p className="text-xs text-red-500 mt-1 flex items-center">
+              <p className="text-xs text-red-500 flex items-center">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   {errors.margin}
                 </p>
               )}
+          </div>
             </div>
           </div>
 
           {/* Totaux calculés */}
-          <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg space-y-2">
-            <div className="flex justify-between">
-              <span className="text-neutral-600 dark:text-neutral-400">Total HT:</span>
-              <span className="font-medium">{formatCurrency(formData.totalHt || 0)} MAD</span>
+      <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">Total HT</div>
+            <div className="font-semibold">{formatCurrency(formData.totalHt || 0)} MAD</div>
             </div>
-            {formData.discount && formData.discount > 0 && (
-              <div className="flex justify-between text-red-600 dark:text-red-400">
-                <span>Remise ({formData.discount}%):</span>
-                <span>-{formatCurrency((formData.quantity || 0) * (formData.unitPrice || 0) * (formData.discount / 100))} MAD</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-neutral-600 dark:text-neutral-400">TVA ({formData.vat_rate}%):</span>
-              <span className="font-medium">{formatCurrency((formData.totalHt || 0) * ((parseFloat(formData.vat_rate || "0")) / 100))} MAD</span>
-            </div>
-            <div className="flex justify-between font-semibold border-t border-neutral-200 dark:border-neutral-700 pt-2">
-              <span>Total TTC:</span>
-              <span>{formatCurrency(formData.totalTtc || 0)} MAD</span>
-            </div>
+          <div>
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">Total TTC</div>
+            <div className="font-semibold">{formatCurrency(formData.totalTtc || 0)} MAD</div>
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button onClick={handleSubmit} className="benaya-button-primary gap-2">
-            <Check className="w-4 h-4" />
-            {isEditing ? "Mettre à jour" : "Ajouter"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

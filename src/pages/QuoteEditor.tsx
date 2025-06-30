@@ -46,6 +46,13 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { quotesApi, QuoteDetail, CreateQuoteData, CreateQuoteItemData, BulkQuoteData, EditorQuoteItem } from "@/lib/api/quotes";
 import { tiersApi } from "@/lib/api/tiers";
@@ -54,9 +61,12 @@ import { formatCurrency } from "@/lib/utils";
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DraggableQuoteItem } from "@/components/quotes/editor/DraggableQuoteItem";
-import { QuoteItemForm } from "@/components/quotes/editor/QuoteItemForm";
+import { QuoteItemFormInline } from "@/components/quotes/editor/QuoteItemForm";
 import { SectionForm } from "@/components/quotes/editor/SectionForm";
 import { DiscountForm } from "@/components/quotes/editor/DiscountForm";
+import { opportunityService } from "@/lib/services/opportunityService";
+import { Opportunity } from "@/lib/types/opportunity";
+import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 
 // Types locaux simplifiés
 type VATRate = 0 | 5.5 | 10 | 20;
@@ -87,15 +97,20 @@ export default function QuoteEditor() {
     conditions: "Acompte de 30% à la signature. Solde à la fin des travaux.",
     issueDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
+    opportunity: "", // ID de l'opportunité associée
   });
   
   const [items, setItems] = useState<EditorQuoteItem[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loadingOpportunities, setLoadingOpportunities] = useState(false);
 
   // Modals
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<EditorQuoteItem | null>(null);
+  const [opportunityFormOpen, setOpportunityFormOpen] = useState(false);
+  const [isCreatingOpportunity, setIsCreatingOpportunity] = useState(false);
 
   // 📊 CHARGEMENT DES DONNÉES
   useEffect(() => {
@@ -121,7 +136,13 @@ export default function QuoteEditor() {
             conditions: quoteDetail.conditions || "",
             issueDate: quoteDetail.issue_date || new Date().toISOString().split("T")[0],
             expiryDate: quoteDetail.expiry_date || "",
+            opportunity: quoteDetail.opportunity || "",
           });
+          
+          // Si un client est sélectionné, charger ses opportunités
+          if (quoteDetail.tier) {
+            loadOpportunities(quoteDetail.tier);
+          }
           
           // Mapper les éléments vers EditorQuoteItem
           const mappedItems: EditorQuoteItem[] = quoteDetail.items?.map(item => ({
@@ -155,6 +176,91 @@ export default function QuoteEditor() {
     loadData();
   }, [id, isNewQuote]);
 
+  // Fonction pour charger les opportunités d'un client
+  const loadOpportunities = async (tierId: string) => {
+    if (!tierId) return;
+    
+    try {
+      setLoadingOpportunities(true);
+      console.log(`🔍 Chargement des opportunités pour le client ${tierId}...`);
+      
+      const result = await opportunityService.getOpportunitiesByTier(tierId);
+      
+      // Filtrer pour ne garder que les opportunités en phase d'analyse ou de négociation
+      // qui sont les plus pertinentes pour associer à un devis
+      const filteredOpportunities = result.opportunities.filter(opp => 
+        opp.stage === 'needs_analysis' || opp.stage === 'negotiation' || opp.stage === 'new'
+      );
+      
+      setOpportunities(filteredOpportunities);
+      
+      console.log(`✅ ${filteredOpportunities.length} opportunités actives chargées pour le client ${tierId}`);
+    } catch (error) {
+      console.error(`❌ Erreur lors du chargement des opportunités:`, error);
+      toast.error("Impossible de charger les opportunités du client");
+    } finally {
+      setLoadingOpportunities(false);
+    }
+  };
+  
+  // Gérer le changement de client
+  const handleClientChange = (tierId: string) => {
+    setQuoteData(prev => ({ ...prev, tier: tierId, opportunity: "" }));
+    setOpportunities([]); // Réinitialiser les opportunités
+    
+    if (tierId) {
+      loadOpportunities(tierId);
+    }
+  };
+
+  // Gérer la création d'une opportunité
+  const handleCreateOpportunity = async (formData: Partial<Opportunity>) => {
+    try {
+      setIsCreatingOpportunity(true);
+      
+      // Ajouter le client sélectionné aux données du formulaire
+      const opportunityData = {
+        ...formData,
+        tierId: quoteData.tier,
+      };
+      
+      console.log("🆕 Création d'une opportunité depuis le devis:", opportunityData);
+      
+      // Créer l'opportunité via le service
+      const newOpportunity = await opportunityService.createOpportunity(opportunityData);
+      
+      // Associer l'opportunité au devis
+      setQuoteData(prev => ({ ...prev, opportunity: newOpportunity.id }));
+      
+      // Ajouter la nouvelle opportunité à la liste locale sans avoir à recharger
+      setOpportunities(prevOpportunities => {
+        // Vérifier si l'opportunité existe déjà dans la liste
+        const exists = prevOpportunities.some(opp => opp.id === newOpportunity.id);
+        if (exists) {
+          // Si elle existe déjà, mettre à jour l'opportunité existante
+          return prevOpportunities.map(opp => 
+            opp.id === newOpportunity.id ? newOpportunity : opp
+          );
+        } else {
+          // Sinon, ajouter la nouvelle opportunité à la liste
+          return [...prevOpportunities, newOpportunity];
+        }
+      });
+      
+      console.log("✅ Opportunité ajoutée à la liste locale:", newOpportunity);
+      
+      // Fermer la modale et afficher un message de succès
+      setOpportunityFormOpen(false);
+      toast.success("Opportunité créée et associée au devis");
+      
+    } catch (error) {
+      console.error("❌ Erreur lors de la création de l'opportunité:", error);
+      toast.error("Impossible de créer l'opportunité");
+    } finally {
+      setIsCreatingOpportunity(false);
+    }
+  };
+
   // 📅 CALCUL AUTOMATIQUE DE LA DATE D'EXPIRATION
   useEffect(() => {
     if (quoteData.issueDate && quoteData.validity_period) {
@@ -175,7 +281,7 @@ export default function QuoteEditor() {
       }
   }, [quoteData.issueDate, quoteData.validity_period]);
 
-  // �� VALIDATION SIMPLE
+  //  VALIDATION SIMPLE
   const validateForm = () => {
     if (!quoteData.tier) {
       toast.error("Veuillez sélectionner un client");
@@ -205,6 +311,7 @@ export default function QuoteEditor() {
           validity_period: quoteData.validity_period,
           notes: quoteData.notes,
           conditions: quoteData.conditions,
+          opportunity: quoteData.opportunity || undefined,
         },
         items: items.map(item => ({
           ...item,
@@ -218,6 +325,7 @@ export default function QuoteEditor() {
       console.log("🔷 Items Count:", bulkData.items.length);
       console.log("🔷 Items Details:", JSON.stringify(bulkData.items, null, 2));
       console.log("🔷 Client sélectionné:", selectedClient);
+      console.log("🔷 Opportunité associée:", selectedOpportunity);
       console.log("🔷 Totaux calculés:", totals);
       console.log("📋 === FIN PAYLOAD ===");
       
@@ -323,6 +431,9 @@ export default function QuoteEditor() {
 
   // Obtenir le client sélectionné
   const selectedClient = clients.find(client => client.id === quoteData.tier);
+  
+  // Obtenir l'opportunité sélectionnée
+  const selectedOpportunity = opportunities.find(opp => opp.id === quoteData.opportunity);
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Chargement...</div>;
@@ -409,7 +520,7 @@ export default function QuoteEditor() {
                     </Label>
                     <Select 
                       value={quoteData.tier} 
-                      onValueChange={(value) => setQuoteData(prev => ({ ...prev, tier: value }))}
+                      onValueChange={(value) => handleClientChange(value)}
                     >
                       <SelectTrigger className={`benaya-input ${error ? "border-red-500" : ""}`}>
                         <SelectValue placeholder="Sélectionner un client" />
@@ -431,7 +542,55 @@ export default function QuoteEditor() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="project">Projet (optionnel)</Label>
+                    <Label htmlFor="opportunity">Opportunité associée</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Select 
+                          value={quoteData.opportunity} 
+                          onValueChange={(value) => setQuoteData(prev => ({ ...prev, opportunity: value }))}
+                          disabled={loadingOpportunities || opportunities.length === 0 || !quoteData.tier}
+                        >
+                          <SelectTrigger className="benaya-input">
+                            <SelectValue placeholder={loadingOpportunities ? "Chargement..." : opportunities.length === 0 ? "Aucune opportunité disponible" : "Sélectionner une opportunité"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {opportunities.map(opportunity => (
+                              <SelectItem key={opportunity.id} value={opportunity.id}>
+                                {opportunity.name} - {opportunity.stage === 'needs_analysis' ? 'Analyse des besoins' : 
+                                  opportunity.stage === 'negotiation' ? 'Négociation' : 
+                                  opportunity.stage === 'new' ? 'Nouvelle' : 
+                                  opportunity.stage} ({formatCurrency(opportunity.estimatedAmount)})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon"
+                        disabled={!quoteData.tier}
+                        onClick={() => setOpportunityFormOpen(true)}
+                        title="Créer une nouvelle opportunité"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {quoteData.tier && opportunities.length === 0 && !loadingOpportunities && (
+                      <p className="text-xs text-amber-500 mt-1 flex items-center">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        Ce client n'a pas d'opportunités actives
+                      </p>
+                    )}
+                    {selectedOpportunity && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Associer ce devis à l'opportunité permettra de mettre à jour automatiquement son statut
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="project">Projet</Label>
                     <Input
                       id="project"
                       value={quoteData.project_name}
@@ -627,13 +786,41 @@ export default function QuoteEditor() {
       </div>
 
       {/* Modals */}
-      <QuoteItemForm
-        open={itemFormOpen}
-        onOpenChange={setItemFormOpen}
-        onSubmit={editingItem ? handleUpdateItem : handleAddItem}
-        item={editingItem || undefined}
-        isEditing={!!editingItem}
-      />
+      <Dialog open={itemFormOpen} onOpenChange={setItemFormOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{editingItem ? "Modifier l'élément" : "Ajouter un élément"}</DialogTitle>
+            <DialogDescription>
+              {editingItem ? "Modifiez les détails de cet élément" : "Ajoutez un nouvel élément au devis"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <QuoteItemFormInline
+            onSave={editingItem ? handleUpdateItem : handleAddItem}
+            onCancel={() => setItemFormOpen(false)}
+            initialData={editingItem || undefined}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal pour créer une opportunité */}
+      <Dialog open={opportunityFormOpen} onOpenChange={setOpportunityFormOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Créer une opportunité</DialogTitle>
+            <DialogDescription>
+              Créez une nouvelle opportunité qui sera automatiquement associée à ce devis
+            </DialogDescription>
+          </DialogHeader>
+          
+          <OpportunityForm 
+            onSubmit={handleCreateOpportunity}
+            onCancel={() => setOpportunityFormOpen(false)}
+            preselectedTierId={quoteData.tier}
+            disableTierSelection={true}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

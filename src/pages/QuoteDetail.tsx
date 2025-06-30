@@ -15,7 +15,9 @@ import {
   FileText,
   Edit,
   Copy,
-  Play
+  Play,
+  Handshake,
+  Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { quotesApi, QuoteDetail as QuoteDetailType, QuoteItem } from "@/lib/api/quotes";
+import { createInvoiceFromQuote } from "@/lib/api/invoices";
 import { ConvertToInvoiceModal } from "@/components/quotes/ConvertToInvoiceModal";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -105,11 +108,47 @@ export default function QuoteDetail() {
     if (!id) return;
     
     try {
+      // Marquer le devis comme accepté
       await quotesApi.markAsAccepted(id);
       toast.success("Devis accepté avec succès");
-      // Recharger les données
+      
+      // Recharger les données du devis
       const updatedQuote = await quotesApi.getQuote(id);
       setQuote(updatedQuote);
+      
+      // Créer une facture à partir du devis
+      try {
+        setConverting(true);
+        const invoice = await createInvoiceFromQuote({
+          quote_id: id,
+          invoice_type: 'total', // Créer une facture totale par défaut
+          payment_terms: 30, // Délai de paiement par défaut : 30 jours
+        });
+        
+        toast.success("Facture créée automatiquement");
+        
+        // Si le devis est associé à une opportunité, définir un indicateur dans sessionStorage
+        if (updatedQuote.opportunity) {
+          sessionStorage.setItem('quoteAccepted', 'true');
+        }
+        
+        // Rediriger vers la page d'édition de la facture
+        navigate(`/factures/edit/${invoice.id}`);
+      } catch (invoiceError) {
+        console.error("Erreur lors de la création de la facture:", invoiceError);
+        toast.error("Erreur lors de la création de la facture");
+        
+        // En cas d'erreur de création de facture, rediriger vers les opportunités si le devis est lié à une opportunité
+        if (updatedQuote.opportunity) {
+          sessionStorage.setItem('quoteAccepted', 'true');
+          setTimeout(() => {
+            navigate("/opportunities");
+            toast.success("L'opportunité associée a été marquée comme gagnée");
+          }, 500);
+        }
+      } finally {
+        setConverting(false);
+      }
     } catch (error) {
       console.error("Erreur lors de l'acceptation:", error);
       toast.error("Erreur lors de l'acceptation du devis");
@@ -122,13 +161,31 @@ export default function QuoteDetail() {
     try {
       await quotesApi.markAsRejected(id);
       toast.success("Devis refusé");
-      // Recharger les données
+      
+      // Recharger les données du devis
       const updatedQuote = await quotesApi.getQuote(id);
       setQuote(updatedQuote);
+      
+      // Si le devis est associé à une opportunité, naviguer vers la page des opportunités
+      if (updatedQuote.opportunity) {
+        // Définir un indicateur dans sessionStorage pour indiquer que l'on vient de rejeter un devis
+        sessionStorage.setItem('quoteRejected', 'true');
+        
+        // Attendre un court moment pour que l'API ait le temps de mettre à jour l'opportunité
+        setTimeout(() => {
+          navigate("/opportunities");
+          toast.success("L'opportunité associée a été marquée comme perdue");
+        }, 500);
+      }
     } catch (error) {
       console.error("Erreur lors du refus:", error);
       toast.error("Erreur lors du refus du devis");
     }
+  };
+
+  const handleViewOpportunity = () => {
+    if (!quote?.opportunity) return;
+    navigate(`/opportunities/${quote.opportunity}`);
   };
 
   const handleExportQuote = async () => {
@@ -162,24 +219,24 @@ export default function QuoteDetail() {
     notes?: string;
     copyItems: boolean;
   }) => {
-    if (!quote) return;
+    if (!quote || !id) return;
 
     setConverting(true);
     try {
-      // TODO: Implémenter l'API de création de facture depuis un devis
-      // const newInvoice = await invoicesApi.createFromQuote(quote.id, invoiceData);
-      
-      // Pour l'instant, simuler la création
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Utiliser l'API pour créer une facture à partir du devis
+      const invoice = await createInvoiceFromQuote({
+        quote_id: id,
+        invoice_type: invoiceData.copyItems ? 'total' : 'acompte',
+        acompte_percentage: invoiceData.copyItems ? undefined : 30, // Valeur par défaut pour l'acompte
+        payment_terms: parseInt(invoiceData.paymentTerms),
+        notes: invoiceData.notes
+      });
       
       toast.success("Facture créée avec succès !");
       setConvertModalOpen(false);
       
-      // TODO: Naviguer vers la facture créée
-      // navigate(`/factures/${newInvoice.id}`);
-      
-      // Pour l'instant, naviguer vers la liste des factures
-      navigate("/factures");
+      // Naviguer vers la facture créée
+      navigate(`/factures/edit/${invoice.id}`);
     } catch (error) {
       console.error("Erreur lors de la conversion:", error);
       toast.error("Erreur lors de la création de la facture");
@@ -231,6 +288,49 @@ export default function QuoteDetail() {
           <Badge className="benaya-badge-neutral gap-1">
             <XCircle className="w-3 h-3" />
             Annulé
+          </Badge>
+        );
+      default:
+        return <Badge className="benaya-badge-neutral">—</Badge>;
+    }
+  };
+
+  // Obtenir le badge de statut pour l'opportunité
+  const getOpportunityStatusBadge = (status: string) => {
+    switch (status) {
+      case "new":
+        return (
+          <Badge className="benaya-badge-neutral gap-1">
+            <div className="w-2 h-2 bg-neutral-400 rounded-full"></div>
+            Nouvelle
+          </Badge>
+        );
+      case "needs_analysis":
+        return (
+          <Badge className="benaya-badge-info gap-1">
+            <Clock className="w-3 h-3" />
+            Analyse des besoins
+          </Badge>
+        );
+      case "negotiation":
+        return (
+          <Badge className="benaya-badge-warning gap-1">
+            <Handshake className="w-3 h-3" />
+            Négociation
+          </Badge>
+        );
+      case "won":
+        return (
+          <Badge className="benaya-badge-success gap-1">
+            <CheckCircle className="w-3 h-3" />
+            Gagnée
+          </Badge>
+        );
+      case "lost":
+        return (
+          <Badge className="benaya-badge-error gap-1">
+            <XCircle className="w-3 h-3" />
+            Perdue
           </Badge>
         );
       default:
@@ -513,7 +613,7 @@ export default function QuoteDetail() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Total TVA:</span>
-                  <span className="font-medium">{formatCurrency(quote.total_vat)} MAD</span>
+                  <span className="font-medium">{formatCurrency(quote.total_tva)} MAD</span>
                 </div>
                 <div className="flex justify-between text-lg font-semibold border-t border-neutral-200 dark:border-neutral-700 pt-2">
                   <span>Total TTC:</span>
@@ -535,11 +635,11 @@ export default function QuoteDetail() {
                 </div>
               )}
               
-              {quote.terms_and_conditions && (
+              {quote.conditions && (
                 <div className="space-y-2">
                   <h3 className="font-medium">Conditions générales</h3>
                   <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                    {quote.terms_and_conditions}
+                    {quote.conditions}
                   </p>
                 </div>
               )}
@@ -568,6 +668,31 @@ export default function QuoteDetail() {
                 )}
               </div>
               
+              {/* Opportunité associée */}
+              {quote.opportunity && quote.opportunity_details && (
+                <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Opportunité associée
+                    </h4>
+                    {quote.opportunity_details.stage && getOpportunityStatusBadge(quote.opportunity_details.stage)}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm">{quote.opportunity_details.name || "Opportunité commerciale"}</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full text-xs"
+                      onClick={handleViewOpportunity}
+                    >
+                      Voir l'opportunité
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
               {/* Totals Summary */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
@@ -576,7 +701,7 @@ export default function QuoteDetail() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>TVA:</span>
-                  <span className="font-medium">{formatCurrency(quote.total_vat)} MAD</span>
+                  <span className="font-medium">{formatCurrency(quote.total_tva)} MAD</span>
                 </div>
                 <div className="flex justify-between font-semibold border-t border-neutral-200 dark:border-neutral-700 pt-2">
                   <span>Total TTC:</span>

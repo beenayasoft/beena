@@ -84,6 +84,7 @@ export interface BulkQuoteData {
     validity_period?: number;        // ✅ AJOUTÉ - Durée de validité en jours
     notes?: string;                  // ✅ Notes du devis
     conditions?: string;             // ✅ Conditions générales (maps to terms_and_conditions)
+    opportunity?: string;            // ✅ AJOUTÉ - ID de l'opportunité associée
     // Champs auto-générés par Django (à ne pas envoyer)
     // client_name, client_address, issue_date, expiry_date, number, status
   };
@@ -114,6 +115,7 @@ export interface Quote {
   validity_period: number;
   notes?: string;
   conditions?: string;
+  opportunity?: string;
   total_ht: number;
   total_tva: number;
   total_ttc: number;
@@ -141,6 +143,14 @@ export interface QuoteDetail extends Quote {
     base_ht: number;
     vat_amount: number;
   }>;
+  opportunity_details?: {
+    id: string;
+    name: string;
+    stage: string;
+    stage_display: string;
+    probability: number;
+    amount: number;
+  };
 }
 
 export interface QuoteStats {
@@ -194,6 +204,7 @@ export interface CreateQuoteData {
   validity_period?: number;
   notes?: string;
   conditions?: string;
+  opportunity?: string;
 }
 
 export interface CreateQuoteItemData {

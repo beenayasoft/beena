@@ -26,6 +26,7 @@ interface OpportunityFormProps {
   onCancel: () => void;
   isEditing?: boolean;
   preselectedTierId?: string;
+  disableTierSelection?: boolean;
 }
 
 export function OpportunityForm({
@@ -34,6 +35,7 @@ export function OpportunityForm({
   onCancel,
   isEditing = false,
   preselectedTierId,
+  disableTierSelection,
 }: OpportunityFormProps) {
   const { toast } = useToast();
   
@@ -238,11 +240,16 @@ export function OpportunityForm({
                   ✓ Pré-sélectionné depuis la fiche client
                 </span>
               )}
+              {disableTierSelection && (
+                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                  ✓ Client du devis
+                </span>
+              )}
             </Label>
             <Select
               value={formData.tierId}
               onValueChange={handleTierChange}
-              disabled={tiersLoading}
+              disabled={tiersLoading || disableTierSelection}
             >
               <SelectTrigger className={`benaya-input ${errors.tierId ? "border-red-500" : ""} ${
                 preselectedTierId && formData.tierId === preselectedTierId 
