@@ -1,8 +1,6 @@
-import { Opportunity, OpportunityFilters, OpportunityStats } from '../types/opportunity';
-import { opportunitiesApi } from '../api/opportunities';
-import { quotesApi } from '../api/quotes'; // ✅ Import pour le fallback intelligent
-import * as mockAPI from '../mock/opportunities';
-import { getServiceConfig, logger, isProduction } from '../config/environment';
+import { opportunitiesApi } from '@/lib/api/opportunities';
+import { Opportunity, OpportunityFilters, OpportunityStats } from '@/lib/types/opportunity';
+import { syncService } from './syncService';
 
 // Configuration du service
 interface ServiceConfig {
@@ -31,7 +29,11 @@ interface ServiceMetrics {
 
 class OpportunityService {
   private config: ServiceConfig = {
-    ...getServiceConfig(), // Configuration depuis l'environnement
+    useAPI: true,              // ✅ FORCER l'API
+    enableFallback: false,     // ❌ DÉSACTIVER les mocks
+    enableMetrics: true,
+    cacheEnabled: true,
+    cacheTimeout: 5 * 60 * 1000, // 5 minutes
   };
 
   private cache = new Map<string, CacheEntry<any>>();
@@ -59,7 +61,7 @@ class OpportunityService {
         (this.metrics.averageResponseTime + duration) / 2;
       
       if (this.config.enableMetrics) {
-        logger.debug(`✅ ${name}: ${duration}ms`);
+        console.debug(`✅ ${name}: ${duration}ms`);
       }
       
       return result;
@@ -69,7 +71,7 @@ class OpportunityService {
       this.metrics.lastError = error instanceof Error ? error.message : String(error);
       
       if (this.config.enableMetrics) {
-        logger.error(`❌ ${name}: ${duration}ms - ${this.metrics.lastError}`);
+        console.error(`❌ ${name}: ${duration}ms - ${this.metrics.lastError}`);
       }
       
       throw error;
@@ -90,7 +92,7 @@ class OpportunityService {
     }
     
     if (this.config.enableMetrics) {
-      logger.debug(`📦 Cache hit: ${key} (${entry.source})`);
+      console.debug(`📦 Cache hit: ${key} (${entry.source})`);
     }
     
     return entry.data;
@@ -108,33 +110,44 @@ class OpportunityService {
 
   // 🚀 Idée de génie : Transformation automatique des types
   private transformOpportunity = (apiData: any): Opportunity => {
-    if (apiData.tierId) return apiData; // Déjà au format frontend
+    // Vérifier si déjà transformé (avec tous les champs frontend)
+    if (apiData.tierId && typeof apiData.estimatedAmount === 'number') {
+      return apiData; // Déjà au format frontend
+    }
     
     return {
       id: apiData.id,
       name: apiData.name,
-      tierId: apiData.tier,
-      tierName: apiData.tier_name,
-      tierType: apiData.tier_type ? [apiData.tier_type] : [],
+      tierId: apiData.tierId || apiData.tier, // ✅ CORRECTION: Utiliser tierId en priorité
+      tierName: apiData.tierName || apiData.tier_name,
+      tierType: apiData.tierType || (apiData.tier_type ? [apiData.tier_type] : []),
       stage: apiData.stage,
-      estimatedAmount: parseFloat(apiData.estimated_amount || '0'),
+      estimatedAmount: parseFloat(apiData.estimatedAmount || apiData.estimated_amount || '0'),
       probability: apiData.probability,
-      expectedCloseDate: apiData.expected_close_date,
+      expectedCloseDate: apiData.expectedCloseDate || apiData.expected_close_date,
       source: apiData.source,
       description: apiData.description,
-      assignedTo: apiData.assigned_to,
-      createdAt: apiData.created_at,
-      updatedAt: apiData.updated_at,
-      closedAt: apiData.closed_at,
-      lossReason: apiData.loss_reason,
-      lossDescription: apiData.loss_description,
-      quoteIds: [], // TODO: À implémenter quand la relation sera disponible
+      assignedTo: apiData.assignedTo || apiData.assigned_to,
+      createdAt: apiData.createdAt || apiData.created_at,
+      updatedAt: apiData.updatedAt || apiData.updated_at,
+      closedAt: apiData.closedAt || apiData.closed_at,
+      lossReason: apiData.lossReason || apiData.loss_reason,
+      lossDescription: apiData.lossDescription || apiData.loss_description,
+      // ✅ CORRECTION : Récupérer les devis depuis l'API
+      quoteIds: apiData.quoteIds || apiData.quote_ids || [],
+      quotes: apiData.quotes || [], // Nouvelles données détaillées
+      quotes_count: apiData.quotes_count || 0,
     };
   };
 
   // 🚀 Transformation des statistiques API → Frontend
   private transformStats = (apiData: any): OpportunityStats => {
-    if (apiData.byStage) return apiData; // Déjà au format frontend
+    console.log('🔧 Transformation des stats API vers Frontend:', apiData);
+    
+    if (apiData.byStage) {
+      console.log('✅ Données déjà au format frontend');
+      return apiData; // Déjà au format frontend
+    }
     
     // Transformation de la structure backend vers frontend
     const byStage: Record<string, number> = {};
@@ -143,20 +156,31 @@ class OpportunityService {
     
     // Transformer by_stage du format backend vers frontend
     if (apiData.by_stage) {
+      console.log('🔧 Transformation by_stage:', apiData.by_stage);
       Object.keys(apiData.by_stage).forEach(stage => {
         const stageData = apiData.by_stage[stage];
-        byStage[stage] = stageData.count || 0;
         
-        // Calculer les montants spéciaux
-        if (stage === 'won') {
-          wonAmount = stageData.total_amount || 0;
-        } else if (stage === 'lost') {
-          lostAmount = stageData.total_amount || 0;
+        // ✅ CORRECTION: Extraire le count depuis l'objet complexe
+        if (typeof stageData === 'object' && stageData.count !== undefined) {
+          byStage[stage] = stageData.count;
+          
+          // Calculer les montants spéciaux
+          if (stage === 'won') {
+            wonAmount = stageData.total_amount || 0;
+          } else if (stage === 'lost') {
+            lostAmount = stageData.total_amount || 0;
+          }
+        } else if (typeof stageData === 'number') {
+          // Fallback si c'est juste un nombre
+          byStage[stage] = stageData;
+        } else {
+          console.warn(`⚠️ Format inattendu pour ${stage}:`, stageData);
+          byStage[stage] = 0;
         }
       });
     }
     
-    return {
+    const transformedStats = {
       total: apiData.total || 0,
       byStage: byStage as any, // Cast pour satisfaire TypeScript
       totalAmount: apiData.total_estimated_amount || 0,
@@ -165,6 +189,9 @@ class OpportunityService {
       lostAmount: lostAmount,
       conversionRate: apiData.conversion_rate || 0,
     };
+    
+    console.log('✅ Stats transformées:', transformedStats);
+    return transformedStats;
   };
 
   private transformToAPI = (frontendData: Partial<Opportunity>): any => {
@@ -190,25 +217,17 @@ class OpportunityService {
     const cached = this.getCached<Opportunity[]>(cacheKey);
     if (cached) return cached;
 
-    // Tentative API
-    if (this.config.useAPI) {
-      try {
-        const apiData = await this.withMetrics(opportunitiesApi.getOpportunities, 'getOpportunities')(filters);
-        const transformed = apiData.map(this.transformOpportunity);
-        this.setCache(cacheKey, transformed, 'api');
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
+    try {
+      console.log('🔍 [API-ONLY] Récupération de toutes les opportunités...', filters);
+      const apiData = await this.withMetrics(opportunitiesApi.getOpportunities, 'getOpportunities')(filters);
+      const transformed = apiData.map(this.transformOpportunity);
+      this.setCache(cacheKey, transformed, 'api');
+      console.log(`✅ [API-ONLY] ${transformed.length} opportunités récupérées`);
+      return transformed;
+    } catch (error) {
+      console.error('❌ [API-ONLY] Erreur lors de la récupération des opportunités:', error);
+      throw new Error(`Impossible de récupérer les opportunités: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Fallback vers mocks
-    const mockData = mockAPI.getOpportunities(filters);
-    this.setCache(cacheKey, mockData, 'mock');
-    return mockData;
   }
 
   // 🚀 Idée de génie #2 : Méthode spécialisée pour TierDetail avec chargement progressif
@@ -232,7 +251,7 @@ class OpportunityService {
     const cached = this.getCached<any>(cacheKey);
     if (cached) {
       if (this.config.enableMetrics) {
-        logger.debug(`📦 Cache hit pour tier ${tierId}: ${cached.opportunities.length} opportunités`);
+        console.debug(`📦 Cache hit pour tier ${tierId}: ${cached.opportunities.length} opportunités`);
       }
       return cached;
     }
@@ -240,38 +259,21 @@ class OpportunityService {
     let opportunities: Opportunity[] = [];
     let source: 'api' | 'mock' = 'api';
 
-    // Tentative API avec gestion d'erreurs gracieuse
-    if (this.config.useAPI) {
-      try {
-        console.log(`🔍 Récupération opportunités pour tier ${tierId}...`);
-        
-        // Filtrer par tierId
-        const filters: OpportunityFilters = { tierId };
-        const apiData = await this.withMetrics(opportunitiesApi.getOpportunities, 'getOpportunitiesByTier')(filters);
-        opportunities = apiData.map(this.transformOpportunity);
-        source = 'api';
-        
-        if (this.config.enableMetrics) {
-          logger.info(`✅ API: ${opportunities.length} opportunités trouvées pour tier ${tierId}`);
-        }
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn(`🔄 API failed pour tier ${tierId}, falling back to mocks`, error);
-        this.metrics.mockFallbacks++;
-        source = 'mock';
-        
-        // Fallback vers mocks
-        opportunities = mockAPI.getOpportunities({ tierId });
-        
-        if (this.config.enableMetrics) {
-          logger.warn(`⚠️ Mock: ${opportunities.length} opportunités trouvées pour tier ${tierId}`);
-        }
+    try {
+      console.log(`🔍 [API-ONLY] Récupération opportunités pour tier ${tierId}...`);
+      
+      // ✅ CORRECTION: Utiliser 'tier' au lieu de 'tierId' pour l'API Django
+      const filters: OpportunityFilters = { tier: tierId };
+      const apiData = await this.withMetrics(opportunitiesApi.getOpportunities, 'getOpportunitiesByTier')(filters);
+      opportunities = apiData.map(this.transformOpportunity);
+      source = 'api';
+      
+      if (this.config.enableMetrics) {
+        console.info(`✅ API: ${opportunities.length} opportunités trouvées pour tier ${tierId}`);
       }
-    } else {
-      // Mode mock complet
-      opportunities = mockAPI.getOpportunities({ tierId });
-      source = 'mock';
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur API pour tier ${tierId}:`, error);
+      throw new Error(`Impossible de récupérer les opportunités: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
 
     // 🚀 Calcul des métriques en temps réel (si demandé)
@@ -293,7 +295,7 @@ class OpportunityService {
       };
       
       if (this.config.enableMetrics) {
-        logger.debug(`📊 Métriques tier ${tierId}:`, metrics);
+        console.debug(`📊 Métriques tier ${tierId}:`, metrics);
       }
     }
 
@@ -319,283 +321,198 @@ class OpportunityService {
     const cached = this.getCached<Opportunity>(cacheKey);
     if (cached) return cached;
 
-    if (this.config.useAPI) {
-      try {
-        const apiData = await this.withMetrics(opportunitiesApi.getOpportunity, 'getOpportunity')(id);
-        const transformed = this.transformOpportunity(apiData);
-        this.setCache(cacheKey, transformed, 'api');
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
+    try {
+      console.log(`🔍 [API-ONLY] Récupération opportunité ${id}...`);
+      const apiData = await this.withMetrics(opportunitiesApi.getOpportunity, 'getOpportunity')(id);
+      const transformed = this.transformOpportunity(apiData);
+      this.setCache(cacheKey, transformed, 'api');
+      console.log(`✅ [API-ONLY] Opportunité ${id} récupérée`);
+      return transformed;
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur lors de la récupération de l'opportunité ${id}:`, error);
+      throw new Error(`Opportunité ${id} introuvable: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    const mockData = mockAPI.getOpportunityById(id);
-    if (!mockData) throw new Error(`Opportunity ${id} not found`);
-    
-    this.setCache(cacheKey, mockData, 'mock');
-    return mockData;
   }
 
   async createOpportunity(data: Partial<Opportunity>): Promise<Opportunity> {
-    if (this.config.useAPI) {
-      try {
-        const apiData = this.transformToAPI(data);
-        const result = await this.withMetrics(opportunitiesApi.createOpportunity, 'createOpportunity')(apiData);
-        const transformed = this.transformOpportunity(result);
-        
-        // Invalider le cache des listes
-        this.cache.forEach((_, key) => {
-          if (key.startsWith('opportunities_')) {
-            this.cache.delete(key);
-          }
-        });
-        
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
-    }
+    console.log('🔧 [API-ONLY] === DÉBUT CRÉATION OPPORTUNITÉ ===');
+    console.log('🔧 [API-ONLY] Données frontend reçues:', data);
 
-    // Fallback mock
-    const mockResult = mockAPI.createOpportunity(data as any);
-    this.cache.clear(); // Invalider tout le cache
-    return mockResult;
+    try {
+      console.log('🚀 [API-ONLY] Création via API...');
+      
+      const apiData = this.transformToAPI(data);
+      console.log('🔧 [API-ONLY] Données transformées pour API:', apiData);
+      
+      // Validation rapide des champs obligatoires
+      const validationErrors = [];
+      if (!apiData.tier) {
+        validationErrors.push(`❌ Champ tier manquant! (tierId: ${data.tierId})`);
+      }
+      if (!apiData.name) {
+        validationErrors.push(`❌ Champ name manquant! (name: ${data.name})`);
+      }
+      if (apiData.estimated_amount === undefined || apiData.estimated_amount === null) {
+        validationErrors.push(`❌ Champ estimated_amount manquant! (estimatedAmount: ${data.estimatedAmount})`);
+      }
+      if (!apiData.expected_close_date) {
+        validationErrors.push(`❌ Champ expected_close_date manquant! (expectedCloseDate: ${data.expectedCloseDate})`);
+      }
+      
+      if (validationErrors.length > 0) {
+        console.error('❌ [API-ONLY] Erreurs de validation:', validationErrors);
+        throw new Error(`Données invalides: ${validationErrors.join(', ')}`);
+      }
+      
+      console.log('✅ [API-ONLY] Validation des champs obligatoires passée');
+      
+      console.log('📡 [API-ONLY] Envoi vers API...');
+      const result = await this.withMetrics(opportunitiesApi.createOpportunity, 'createOpportunity')(apiData);
+      console.log('✅ [API-ONLY] Réponse API reçue:', result);
+      
+      const transformed = this.transformOpportunity(result);
+      console.log('✅ [API-ONLY] Données transformées vers frontend:', transformed);
+      
+      // Invalider le cache des listes
+      this.cache.forEach((_, key) => {
+        if (key.startsWith('opportunities_') || key.startsWith('tier_opportunities_')) {
+          this.cache.delete(key);
+        }
+      });
+      
+      console.log('🎉 [API-ONLY] Opportunité créée avec succès via API !');
+      return transformed;
+    } catch (error) {
+      console.error('❌ [API-ONLY] Erreur détaillée API:', {
+        message: error instanceof Error ? error.message : 'Erreur inconnue',
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        config: error?.config
+      });
+      
+      throw new Error(`Impossible de créer l'opportunité: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
   }
 
   async updateOpportunity(id: string, data: Partial<Opportunity>): Promise<Opportunity> {
-    if (this.config.useAPI) {
-      try {
-        const apiData = this.transformToAPI(data);
-        const result = await this.withMetrics(opportunitiesApi.updateOpportunity, 'updateOpportunity')(id, apiData);
-        const transformed = this.transformOpportunity(result);
-        
-        // Mettre à jour le cache
-        this.setCache(`opportunity_${id}`, transformed, 'api');
-        
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
+    try {
+      console.log(`🔍 [API-ONLY] Mise à jour opportunité ${id}...`, data);
+      const apiData = this.transformToAPI(data);
+      const result = await this.withMetrics(opportunitiesApi.updateOpportunity, 'updateOpportunity')(id, apiData);
+      const transformed = this.transformOpportunity(result);
+      
+      // Mettre à jour le cache
+      this.setCache(`opportunity_${id}`, transformed, 'api');
+      console.log(`✅ [API-ONLY] Opportunité ${id} mise à jour`);
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier les changements
+      syncService.notifyOpportunityUpdated(id, transformed, transformed.quoteIds);
+      
+      return transformed;
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur lors de la mise à jour de l'opportunité ${id}:`, error);
+      throw new Error(`Impossible de mettre à jour l'opportunité: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Fallback mock
-    const mockResult = mockAPI.updateOpportunity(id, data);
-    if (!mockResult) throw new Error(`Opportunity ${id} not found`);
-    
-    this.setCache(`opportunity_${id}`, mockResult, 'mock');
-    return mockResult;
   }
 
   async deleteOpportunity(id: string): Promise<boolean> {
-    if (this.config.useAPI) {
-      try {
-        await this.withMetrics(opportunitiesApi.deleteOpportunity, 'deleteOpportunity')(id);
-        
-        // Nettoyer le cache
-        this.cache.delete(`opportunity_${id}`);
-        this.cache.forEach((_, key) => {
-          if (key.startsWith('opportunities_')) {
-            this.cache.delete(key);
-          }
-        });
-        
-        return true;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
+    try {
+      console.log(`🔍 [API-ONLY] Suppression opportunité ${id}...`);
+      await this.withMetrics(opportunitiesApi.deleteOpportunity, 'deleteOpportunity')(id);
+      
+      // Nettoyer le cache
+      this.cache.delete(`opportunity_${id}`);
+      this.cache.forEach((_, key) => {
+        if (key.startsWith('opportunities_') || key.startsWith('tier_opportunities_')) {
+          this.cache.delete(key);
+        }
+      });
+      
+      console.log(`✅ [API-ONLY] Opportunité ${id} supprimée`);
+      return true;
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur lors de la suppression de l'opportunité ${id}:`, error);
+      throw new Error(`Impossible de supprimer l'opportunité: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Fallback mock
-    const result = mockAPI.deleteOpportunity(id);
-    if (result) {
-      this.cache.clear();
-    }
-    return result;
   }
 
   async updateStage(id: string, stage: string): Promise<Opportunity> {
-    if (this.config.useAPI) {
-      try {
-        const result = await this.withMetrics(opportunitiesApi.updateOpportunityStage, 'updateStage')(id, stage);
-        const transformed = this.transformOpportunity(result);
-        this.setCache(`opportunity_${id}`, transformed, 'api');
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
+    try {
+      console.log(`🔍 [API-ONLY] Mise à jour étape opportunité ${id} vers ${stage}...`);
+      const result = await this.withMetrics(opportunitiesApi.updateOpportunityStage, 'updateStage')(id, stage);
+      const transformed = this.transformOpportunity(result);
+      this.setCache(`opportunity_${id}`, transformed, 'api');
+      console.log(`✅ [API-ONLY] Étape opportunité ${id} mise à jour vers ${stage}`);
+      return transformed;
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur lors de la mise à jour de l'étape pour l'opportunité ${id}:`, error);
+      
+      // Préserver l'erreur originale pour les validations métier
+      if (error?.response?.status === 400) {
+        console.log('🔍 Erreur de validation métier détectée, transmission de l\'erreur originale');
+        throw error; // Transmettre l'erreur axios originale avec response.data
       }
+      
+      // Pour les autres erreurs, transformer en erreur générique
+      throw new Error(`Impossible de mettre à jour l'étape: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Fallback mock avec logique métier
-    const opportunity = mockAPI.getOpportunityById(id);
-    if (!opportunity) throw new Error(`Opportunity ${id} not found`);
-    
-    let probability = opportunity.probability;
-    switch (stage) {
-      case 'new': probability = 10; break;
-      case 'needs_analysis': probability = 30; break;
-      case 'negotiation': probability = 60; break;
-      case 'won': probability = 100; break;
-      case 'lost': probability = 0; break;
-    }
-    
-    const result = mockAPI.updateOpportunity(id, { 
-      stage: stage as any, 
-      probability 
-    });
-    
-    if (!result) throw new Error(`Failed to update opportunity ${id}`);
-    
-    this.setCache(`opportunity_${id}`, result, 'mock');
-    return result;
   }
 
   async markAsWon(id: string, data?: { project_id?: string }): Promise<Opportunity> {
-    if (this.config.useAPI) {
-      try {
-        const result = await this.withMetrics(opportunitiesApi.markAsWon, 'markAsWon')(id, data);
-        const transformed = this.transformOpportunity(result);
-        this.setCache(`opportunity_${id}`, transformed, 'api');
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
+    try {
+      console.log(`🔍 [API-ONLY] Marquage opportunité ${id} comme gagnée...`);
+      const result = await this.withMetrics(opportunitiesApi.markAsWon, 'markAsWon')(id, data);
+      const transformed = this.transformOpportunity(result);
+      this.setCache(`opportunity_${id}`, transformed, 'api');
+      console.log(`✅ [API-ONLY] Opportunité ${id} marquée comme gagnée`);
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier les changements
+      syncService.notifyOpportunityUpdated(id, transformed, transformed.quoteIds);
+      
+      return transformed;
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur lors du marquage de l'opportunité ${id} comme gagnée:`, error);
+      throw new Error(`Impossible de marquer l'opportunité comme gagnée: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Fallback mock
-    const result = mockAPI.updateOpportunity(id, { 
-      stage: 'won', 
-      probability: 100 
-    });
-    
-    if (!result) throw new Error(`Opportunity ${id} not found`);
-    
-    this.setCache(`opportunity_${id}`, result, 'mock');
-    return result;
   }
 
   async markAsLost(id: string, data: { loss_reason: string; loss_description?: string }): Promise<Opportunity> {
-    if (this.config.useAPI) {
-      try {
-        const result = await this.withMetrics(opportunitiesApi.markAsLost, 'markAsLost')(id, data);
-        const transformed = this.transformOpportunity(result);
-        this.setCache(`opportunity_${id}`, transformed, 'api');
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
+    try {
+      console.log(`🔍 [API-ONLY] Marquage opportunité ${id} comme perdue...`);
+      const result = await this.withMetrics(opportunitiesApi.markAsLost, 'markAsLost')(id, data);
+      const transformed = this.transformOpportunity(result);
+      this.setCache(`opportunity_${id}`, transformed, 'api');
+      console.log(`✅ [API-ONLY] Opportunité ${id} marquée comme perdue`);
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier les changements
+      syncService.notifyOpportunityUpdated(id, transformed, transformed.quoteIds);
+      
+      return transformed;
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur lors du marquage de l'opportunité ${id} comme perdue:`, error);
+      throw new Error(`Impossible de marquer l'opportunité comme perdue: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Fallback mock
-    const result = mockAPI.updateOpportunity(id, {
-      stage: 'lost',
-      probability: 0,
-      lossReason: data.loss_reason as any,
-      lossDescription: data.loss_description,
-    });
-    
-    if (!result) throw new Error(`Opportunity ${id} not found`);
-    
-    this.setCache(`opportunity_${id}`, result, 'mock');
-    return result;
   }
 
   async createQuote(id: string, data?: { title?: string; description?: string }): Promise<{ quote_id: string; quote: any }> {
-    if (this.config.useAPI) {
-      try {
-        console.log(`📄 Tentative de création de devis via API opportunités pour ${id}...`);
-        return await this.withMetrics(opportunitiesApi.createQuoteFromOpportunity, 'createQuote')(id, data);
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API opportunités failed, tentative de fallback intelligent vers API quotes...', error);
-        this.metrics.mockFallbacks++;
-        
-        // 🚀 FALLBACK INTELLIGENT : Créer un vrai devis via l'API quotes
-        try {
-          console.log(`🧠 Fallback intelligent : récupération de l'opportunité ${id}...`);
-          
-          // Récupérer l'opportunité pour ses informations
-          let opportunity: Opportunity;
-          try {
-            // Essayer d'abord via l'API
-            const apiData = await opportunitiesApi.getOpportunity(id);
-            opportunity = this.transformOpportunity(apiData);
-          } catch (opportunityApiError) {
-            console.warn('⚠️ API opportunité failed, utilisation du mock pour l\'opportunité...', opportunityApiError);
-            // Fallback vers le mock pour l'opportunité
-            const mockOpportunity = mockAPI.getOpportunityById(id);
-            if (!mockOpportunity) throw new Error(`Opportunité ${id} introuvable`);
-            opportunity = mockOpportunity;
-          }
-          
-          console.log(`✅ Opportunité récupérée:`, opportunity);
-          
-          // Créer un vrai devis via l'API quotes avec les données de l'opportunité
-          const quoteData = {
-            tier: opportunity.tierId,
-            project_name: data?.title || `Projet ${opportunity.name}`,
-            project_address: '', // Pourrait être récupéré depuis le tier si nécessaire
-            validity_period: 30, // 30 jours par défaut
-            notes: data?.description || opportunity.description || '',
-            conditions: 'Conditions générales standard' // Pourrait être configuré
-          };
-          
-          console.log(`📄 Création du devis via API quotes avec:`, quoteData);
-          const createdQuote = await quotesApi.createQuote(quoteData);
-          
-          console.log(`✅ Devis créé avec succès via fallback intelligent:`, createdQuote);
-          
-          return {
-            quote_id: createdQuote.id,
-            quote: createdQuote
-          };
-          
-        } catch (fallbackError) {
-          console.error('❌ Fallback intelligent failed, utilisation du mock en dernier recours...', fallbackError);
-          
-          // En dernier recours, utiliser le mock (mais avec un warning)
-          const result = mockAPI.createQuoteFromOpportunity(id);
-          console.warn(`⚠️ ATTENTION : Utilisation du mock ID fictif ${result.quoteId}. Cela causera une erreur 404 !`);
-          
-          return { 
-            quote_id: result.quoteId, 
-            quote: { id: result.quoteId } 
-          };
-        }
+    try {
+      console.log(`🔍 [API-ONLY] Création devis depuis opportunité ${id}...`);
+      const result = await this.withMetrics(opportunitiesApi.createQuoteFromOpportunity, 'createQuote')(id, data);
+      console.log(`✅ [API-ONLY] Devis créé depuis opportunité ${id}:`, result);
+      return result;
+    } catch (error) {
+      console.error(`❌ [API-ONLY] Erreur lors de la création de devis depuis l'opportunité ${id}:`, error);
+      
+      // Préserver l'erreur originale pour les validations métier
+      if (error?.response?.status === 400) {
+        console.log('🔍 Erreur de validation métier détectée, transmission de l\'erreur originale');
+        throw error; // Transmettre l'erreur axios originale avec response.data
       }
+      
+      // Pour les autres erreurs, transformer en erreur générique
+      throw new Error(`Impossible de créer le devis: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Mode mock complet (quand l'API est désactivée)
-    console.log(`🔧 Mode mock complet - création fictive de devis pour opportunité ${id}`);
-    const result = mockAPI.createQuoteFromOpportunity(id);
-    console.warn(`⚠️ ATTENTION : Mode mock - ID fictif ${result.quoteId} utilisé. Cela causera une erreur 404 !`);
-    
-    return { 
-      quote_id: result.quoteId, 
-      quote: { id: result.quoteId } 
-    };
   }
 
   async getStats(): Promise<OpportunityStats> {
@@ -603,24 +520,17 @@ class OpportunityService {
     const cached = this.getCached<OpportunityStats>(cacheKey);
     if (cached) return cached;
 
-    if (this.config.useAPI) {
-      try {
-        const apiData = await this.withMetrics(opportunitiesApi.getOpportunityStats, 'getStats')();
-        const transformed = this.transformStats(apiData);
-        this.setCache(cacheKey, transformed, 'api');
-        return transformed;
-      } catch (error) {
-        if (!this.config.enableFallback) throw error;
-        
-        console.warn('🔄 API failed, falling back to mocks', error);
-        this.metrics.mockFallbacks++;
-      }
+    try {
+      console.log('🔍 [API-ONLY] Récupération des statistiques...');
+      const apiData = await this.withMetrics(opportunitiesApi.getOpportunityStats, 'getStats')();
+      const transformed = this.transformStats(apiData);
+      this.setCache(cacheKey, transformed, 'api');
+      console.log('✅ [API-ONLY] Statistiques récupérées:', transformed);
+      return transformed;
+    } catch (error) {
+      console.error('❌ [API-ONLY] Erreur lors de la récupération des statistiques:', error);
+      throw new Error(`Impossible de récupérer les statistiques: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
-
-    // Fallback mock
-    const result = mockAPI.getOpportunityStats();
-    this.setCache(cacheKey, result, 'mock');
-    return result;
   }
 
   // 🚀 Méthodes de gestion et monitoring
@@ -628,9 +538,9 @@ class OpportunityService {
   enableAPI(enabled: boolean = true): void {
     this.config.useAPI = enabled;
     if (enabled) {
-      logger.info('🚀 API mode enabled');
+      console.info('🚀 API mode enabled');
     } else {
-      logger.info('🔧 Mock mode enabled');
+      console.info('🔧 Mock mode enabled');
     }
   }
 
@@ -640,7 +550,7 @@ class OpportunityService {
 
   clearCache(): void {
     this.cache.clear();
-    logger.info('🗑️ Cache cleared');
+    console.info('🗑️ Cache cleared');
   }
 
   getConfig(): ServiceConfig {
@@ -649,7 +559,7 @@ class OpportunityService {
 
   updateConfig(updates: Partial<ServiceConfig>): void {
     this.config = { ...this.config, ...updates };
-    logger.info('⚙️ Config updated:', updates);
+    console.info('⚙️ Config updated:', updates);
   }
   
   // 🚀 Nouvelle méthode : Health check du service
@@ -674,7 +584,7 @@ class OpportunityService {
           responseTime: duration,
           metrics: this.metrics,
           config: this.config,
-          environment: isProduction() ? 'production' : 'development',
+          environment: process.env.NODE_ENV || 'development',
           fallbacksUsed: this.metrics.mockFallbacks > 0,
         }
       };

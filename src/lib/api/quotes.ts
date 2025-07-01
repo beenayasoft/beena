@@ -79,12 +79,10 @@ export interface EditorQuoteItem {
 export interface BulkQuoteData {
   quote: {
     tier: string;                    // ✅ OBLIGATOIRE - ForeignKey vers Tiers
-    project_name?: string;           // ✅ Nom du projet
-    project_address?: string;        // ✅ AJOUTÉ - Adresse du projet (supporté par Django)
-    validity_period?: number;        // ✅ AJOUTÉ - Durée de validité en jours
+    validity_period?: number;        // ✅ Durée de validité en jours
     notes?: string;                  // ✅ Notes du devis
     conditions?: string;             // ✅ Conditions générales (maps to terms_and_conditions)
-    opportunity?: string;            // ✅ AJOUTÉ - ID de l'opportunité associée
+    opportunity?: string;            // ✅ ID de l'opportunité associée
     // Champs auto-générés par Django (à ne pas envoyer)
     // client_name, client_address, issue_date, expiry_date, number, status
   };
@@ -106,8 +104,6 @@ export interface Quote {
   client_name: string;
   client_type: string;
   client_address: string;
-  project_name: string;
-  project_address: string;
   issue_date: string;
   expiry_date: string;
   issue_date_formatted: string;
@@ -199,8 +195,6 @@ export interface QuotesPaginatedResponse {
 
 export interface CreateQuoteData {
   tier: string;
-  project_name: string;
-  project_address?: string;
   validity_period?: number;
   notes?: string;
   conditions?: string;

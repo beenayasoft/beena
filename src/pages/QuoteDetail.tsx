@@ -35,6 +35,7 @@ import { createInvoiceFromQuote } from "@/lib/api/invoices";
 import { ConvertToInvoiceModal } from "@/components/quotes/ConvertToInvoiceModal";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { syncService } from "@/lib/services/syncService";
 
 export default function QuoteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -95,9 +96,19 @@ export default function QuoteDetail() {
     try {
       await quotesApi.markAsSent(id);
       toast.success("Devis envoyé avec succès");
-      // Recharger les données
+      
+      // Recharger les données du devis
       const updatedQuote = await quotesApi.getQuote(id);
       setQuote(updatedQuote);
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier le changement de statut
+      syncService.notifyQuoteStatusChanged(id, 'sent', updatedQuote.opportunity, updatedQuote);
+      
+      if (updatedQuote.opportunity) {
+        toast.success("L'opportunité associée a été automatiquement passée en négociation", {
+          duration: 4000
+        });
+      }
     } catch (error) {
       console.error("Erreur lors de l'envoi:", error);
       toast.error("Erreur lors de l'envoi du devis");
@@ -115,6 +126,9 @@ export default function QuoteDetail() {
       // Recharger les données du devis
       const updatedQuote = await quotesApi.getQuote(id);
       setQuote(updatedQuote);
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier l'acceptation
+      syncService.notifyQuoteStatusChanged(id, 'accepted', updatedQuote.opportunity, updatedQuote);
       
       // Créer une facture à partir du devis
       try {
@@ -165,6 +179,9 @@ export default function QuoteDetail() {
       // Recharger les données du devis
       const updatedQuote = await quotesApi.getQuote(id);
       setQuote(updatedQuote);
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier le refus
+      syncService.notifyQuoteStatusChanged(id, 'rejected', updatedQuote.opportunity, updatedQuote);
       
       // Si le devis est associé à une opportunité, naviguer vers la page des opportunités
       if (updatedQuote.opportunity) {
@@ -406,7 +423,7 @@ export default function QuoteDetail() {
                 {getStatusBadge(quote.status)}
               </div>
               <p className="text-benaya-100 mt-1">
-                Client: {quote.client_name} {quote.project_name && `- Projet: ${quote.project_name}`}
+                Client: {quote.client_name}
               </p>
             </div>
           </div>
@@ -486,22 +503,7 @@ export default function QuoteDetail() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h3 className="font-medium flex items-center gap-2">
-                  <Building className="h-4 w-4" />
-                  Projet
-                </h3>
-                <div className="space-y-1">
-                  <div className="font-medium">
-                    {quote.project_name || "—"}
-                  </div>
-                  {quote.project_address && (
-                    <div className="text-neutral-600 dark:text-neutral-400 text-sm">
-                      {quote.project_address}
-                    </div>
-                  )}
-                </div>
-              </div>
+
 
               <div className="space-y-4">
                 <h3 className="font-medium flex items-center gap-2">
@@ -824,7 +826,6 @@ export default function QuoteDetail() {
             id: quote.id,
             number: quote.number,
             clientName: quote.client_name,
-            projectName: quote.project_name,
             totalTTC: parseFloat(quote.total_ttc.toString()),
           }}
           onConvert={handleConvertSubmit}

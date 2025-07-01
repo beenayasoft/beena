@@ -169,9 +169,8 @@ export function QuoteList({
             <TableRow>
               <TableHead>STATUT</TableHead>
               <TableHead>NUMÉRO</TableHead>
-              <TableHead>CLIENT</TableHead>
-              <TableHead>PROJET</TableHead>
-              <TableHead>DATE ÉMISSION</TableHead>
+                          <TableHead>CLIENT</TableHead>
+            <TableHead>DATE ÉMISSION</TableHead>
               <TableHead>DATE EXPIRATION</TableHead>
               <TableHead>TOTAL TTC</TableHead>
               <TableHead>ÉLÉMENTS</TableHead>
@@ -180,7 +179,7 @@ export function QuoteList({
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={9} className="text-center py-8">
+              <TableCell colSpan={8} className="text-center py-8">
                 <div className="flex justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-benaya-600"></div>
                 </div>
@@ -201,7 +200,6 @@ export function QuoteList({
             <TableHead>STATUT</TableHead>
             <TableHead>NUMÉRO</TableHead>
             <TableHead>CLIENT</TableHead>
-            <TableHead>PROJET</TableHead>
             <TableHead>DATE ÉMISSION</TableHead>
             <TableHead>DATE EXPIRATION</TableHead>
             <TableHead>TOTAL TTC</TableHead>
@@ -212,7 +210,7 @@ export function QuoteList({
         <TableBody>
           {quotes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center py-8 text-neutral-500">
+              <TableCell colSpan={8} className="text-center py-8 text-neutral-500">
                 Aucun devis trouvé
               </TableCell>
             </TableRow>
@@ -226,7 +224,7 @@ export function QuoteList({
                     {quote.client_name}
                   </Badge>
                 </TableCell>
-                <TableCell>{quote.project_name || "—"}</TableCell>
+
                 <TableCell>{quote.issue_date_formatted}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">

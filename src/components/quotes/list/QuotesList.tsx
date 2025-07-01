@@ -67,7 +67,6 @@ export function QuotesList({
             <TableHead>NUMÉRO</TableHead>
             <TableHead>MONTANT</TableHead>
             <TableHead>CLIENT</TableHead>
-            <TableHead>PROJET</TableHead>
             <TableHead>DATE ÉMISSION</TableHead>
             <TableHead>DATE EXPIRATION</TableHead>
             <TableHead className="w-[100px]">ACTIONS</TableHead>
@@ -76,7 +75,7 @@ export function QuotesList({
         <TableBody>
           {quotes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-center py-8 text-neutral-500">
+              <TableCell colSpan={7} className="text-center py-8 text-neutral-500">
                 Aucun devis trouvé
               </TableCell>
             </TableRow>
@@ -93,7 +92,6 @@ export function QuotesList({
                     {quote.clientName}
                   </Badge>
                 </TableCell>
-                <TableCell>{quote.projectName || "—"}</TableCell>
                 <TableCell>{quote.issueDate || "—"}</TableCell>
                 <TableCell>{quote.expiryDate || "—"}</TableCell>
                 <TableCell>

@@ -32,6 +32,7 @@ import { Opportunity, OpportunityStatus, LossReason } from "@/lib/types/opportun
 import { opportunityService } from "@/lib/services/opportunityService";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { syncService, useSyncListener } from "@/lib/services/syncService";
 
 export default function OpportunityDetail() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +42,83 @@ export default function OpportunityDetail() {
   const [error, setError] = useState<string | null>(null);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [lossFormOpen, setLossFormOpen] = useState(false);
+
+  // ✅ NOUVELLE FONCTION : Rechargement de l'opportunité
+  const reloadOpportunity = async () => {
+    if (!id) return;
+
+    try {
+      console.log(`🔄 Rechargement de l'opportunité ${id}...`);
+      const opportunityData = await opportunityService.getOpportunity(id);
+      
+      if (opportunityData) {
+        setOpportunity(opportunityData);
+        console.log(`✅ Opportunité ${id} rechargée avec succès:`, opportunityData);
+      }
+    } catch (err) {
+      console.error(`❌ Erreur lors du rechargement de l'opportunité ${id}:`, err);
+    }
+  };
+
+  // ✅ SYNCHRONISATION AUTOMATIQUE : Écouter tous les changements liés à cette opportunité
+  useSyncListener('opportunity_updated', id || '', (event) => {
+    console.log(`🔄 Synchronisation automatique opportunité ${id}:`, event);
+    reloadOpportunity(); // Recharger silencieusement
+    
+    if (event.action === 'quote_sent') {
+      toast({
+        title: "Statut mis à jour",
+        description: "L'opportunité est maintenant en négociation",
+        duration: 3000
+      });
+    }
+  }, [id, reloadOpportunity]);
+
+  // ✅ ÉCOUTER LES CHANGEMENTS DE DEVIS ASSOCIÉS
+  useSyncListener('quote_created', '*', (event) => {
+    if (event.relatedEntityId === id) {
+      console.log(`📄 Nouveau devis créé pour l'opportunité ${id}:`, event);
+      reloadOpportunity(); // Recharger pour afficher le nouveau devis
+      toast({
+        title: "Nouveau devis",
+        description: "Un devis a été créé pour cette opportunité",
+        duration: 3000
+      });
+    }
+  }, [id, reloadOpportunity]);
+
+  useSyncListener('quote_status_changed', '*', (event) => {
+    if (event.relatedEntityId === id) {
+      console.log(`📄 Statut devis modifié pour l'opportunité ${id}:`, event);
+      reloadOpportunity(); // Recharger pour afficher le nouveau statut
+      
+      const statusLabels = {
+        'sent': 'envoyé',
+        'accepted': 'accepté',
+        'rejected': 'refusé',
+        'cancelled': 'annulé'
+      };
+      
+      const statusLabel = statusLabels[event.action as keyof typeof statusLabels] || event.action;
+      toast({
+        title: "Devis mis à jour",
+        description: `Un devis associé a été ${statusLabel}`,
+        duration: 3000
+      });
+    }
+  }, [id, reloadOpportunity]);
+
+  useSyncListener('quote_deleted', '*', (event) => {
+    if (event.relatedEntityId === id) {
+      console.log(`📄 Devis supprimé pour l'opportunité ${id}:`, event);
+      reloadOpportunity(); // Recharger pour retirer le devis supprimé
+      toast({
+        title: "Devis supprimé",
+        description: "Un devis associé a été supprimé",
+        duration: 3000
+      });
+    }
+  }, [id, reloadOpportunity]);
 
   // Charger les données de l'opportunité
   useEffect(() => {
@@ -182,7 +260,7 @@ export default function OpportunityDetail() {
       console.log(`📄 Création d'un devis à partir de l'opportunité ${opportunity.id}...`);
       const result = await opportunityService.createQuote(opportunity.id, {
         title: `Devis pour ${opportunity.name}`,
-        description: opportunity.description,
+        description: opportunity.description || "",
       });
       
       if (result && result.quote_id) {
@@ -191,17 +269,107 @@ export default function OpportunityDetail() {
           description: "Un nouveau devis a été créé à partir de cette opportunité",
         });
         console.log(`✅ Devis ${result.quote_id} créé avec succès`);
+        
+        // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier la création du devis
+        console.log(`🔄 Notification de création de devis pour l'opportunité ${opportunity.id}...`);
+        syncService.notifyQuoteCreated(result.quote_id, opportunity.id, result.quote);
+        
+        // Rediriger vers l'édition du devis (la synchronisation se fera automatiquement)
         navigate(`/devis/edit/${result.quote_id}`);
       } else {
         throw new Error("Réponse invalide du serveur");
       }
     } catch (error) {
       console.error(`❌ Erreur lors de la création du devis:`, error);
-      toast({
-        title: "Erreur de création",
-        description: error instanceof Error ? error.message : "Impossible de créer le devis",
-        variant: "destructive",
-      });
+      
+      // 🔍 LOG DE DEBUG - Voir le contenu exact de l'erreur
+      console.log('🔍 DEBUG - error?.response?.status:', error?.response?.status);
+      console.log('🔍 DEBUG - error?.response?.data:', error?.response?.data);
+      console.log('🔍 DEBUG - error complet:', JSON.stringify(error, null, 2));
+      
+      // Gérer les erreurs de validation métier
+      if (error?.response?.status === 400 && error?.response?.data) {
+        const errorData = error.response.data;
+        console.log('🔍 DEBUG - Structure complète errorData:', errorData);
+        
+        // 🔍 DEBUG SUPPLÉMENTAIRE - Voir le contenu du Array(1)
+        if (errorData.description && Array.isArray(errorData.description)) {
+          console.log('🔍 DEBUG - Contenu description array:', errorData.description);
+          console.log('🔍 DEBUG - Premier élément:', errorData.description[0]);
+        }
+        
+        // Gérer les erreurs de serializer Django (plusieurs formats possibles)
+        let detailMessage, reasonMessage, suggestionMessage, allowedStages;
+        
+        if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          // Format d'erreur serializer Django global
+          const firstError = errorData.non_field_errors[0];
+          if (typeof firstError === 'object') {
+            detailMessage = firstError.detail || "Impossible de créer le devis";
+            reasonMessage = firstError.reason || "";
+            suggestionMessage = firstError.suggestion || "";
+            allowedStages = firstError.allowed_stages || [];
+          } else {
+            detailMessage = firstError || "Impossible de créer le devis";
+            reasonMessage = "";
+            suggestionMessage = "";
+            allowedStages = [];
+          }
+        } else if (errorData.description && Array.isArray(errorData.description)) {
+          // Format d'erreur serializer Django sur champ description
+          const firstError = errorData.description[0];
+          if (typeof firstError === 'object') {
+            detailMessage = firstError.detail || "Impossible de créer le devis";
+            reasonMessage = firstError.reason || "";
+            suggestionMessage = firstError.suggestion || "";
+            allowedStages = firstError.allowed_stages || [];
+          } else {
+            detailMessage = firstError || "Impossible de créer le devis";
+            reasonMessage = "";
+            suggestionMessage = "";
+            allowedStages = [];
+          }
+        } else {
+          // Format d'erreur view Django direct
+          detailMessage = errorData.detail || "Impossible de créer le devis";
+          reasonMessage = errorData.reason || "";
+          suggestionMessage = errorData.suggestion || "";
+          allowedStages = errorData.allowed_stages || [];
+        }
+        
+        toast({
+          title: "🚫 Création de devis impossible",
+          description: (
+            <div className="space-y-3">
+              <p className="font-semibold text-sm">{detailMessage}</p>
+              {reasonMessage && (
+                <p className="text-sm">
+                  <span className="font-medium">Raison :</span> {reasonMessage}
+                </p>
+              )}
+              {suggestionMessage && (
+                <p className="text-sm text-blue-600">
+                  <span className="font-medium">💡 Suggestion :</span> {suggestionMessage}
+                </p>
+              )}
+              {allowedStages.length > 0 && (
+                <div className="text-xs bg-blue-50 p-2 rounded">
+                  <span className="font-medium">Statuts autorisés :</span> {allowedStages.join(', ')}
+                </div>
+              )}
+            </div>
+          ),
+          variant: "destructive",
+          duration: 10000, // Plus long pour laisser le temps de lire
+        });
+      } else {
+        // Erreur générique
+        toast({
+          title: "Erreur de création",
+          description: error instanceof Error ? error.message : "Impossible de créer le devis",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -509,10 +677,17 @@ export default function OpportunityDetail() {
             </div>
           )}
 
-          {/* Related Quotes */}
+          {/* ✅ AMÉLIORATION : Devis associés avec données réelles */}
           <div className="benaya-card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-lg">Devis associés</h3>
+              <h3 className="font-medium text-lg flex items-center gap-2">
+                Devis associés
+                {opportunity.quotes_count && opportunity.quotes_count > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {opportunity.quotes_count}
+                  </Badge>
+                )}
+              </h3>
               
               {opportunity.stage !== 'won' && opportunity.stage !== 'lost' && (
                 <Button 
@@ -526,30 +701,64 @@ export default function OpportunityDetail() {
               )}
             </div>
             
-            {opportunity.quoteIds && opportunity.quoteIds.length > 0 ? (
+            {opportunity.quotes && opportunity.quotes.length > 0 ? (
               <div className="space-y-3">
-                {opportunity.quoteIds.map((quoteId) => (
+                {opportunity.quotes.map((quote) => (
                   <div 
-                    key={quoteId}
-                    className="p-4 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 cursor-pointer"
-                    onClick={() => navigate(`/devis/${quoteId}`)}
+                    key={quote.id}
+                    className="p-4 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/devis/${quote.id}`)}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <FileText className="w-4 h-4 text-benaya-600" />
-                        <span className="font-medium">Devis #{quoteId}</span>
+                        <div>
+                          <span className="font-medium">{quote.number}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge 
+                              variant={
+                                quote.status === 'draft' ? 'secondary' :
+                                quote.status === 'sent' ? 'default' :
+                                quote.status === 'accepted' ? 'default' :
+                                quote.status === 'rejected' ? 'destructive' :
+                                'secondary'
+                              }
+                              className={
+                                quote.status === 'accepted' ? 'bg-green-100 text-green-800 border-green-200' :
+                                quote.status === 'sent' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                ''
+                              }
+                            >
+                              {quote.status_display}
+                            </Badge>
+                            <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                              {formatCurrency(quote.total_ttc)} MAD
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        Voir
-                      </Button>
+                      <div className="flex items-center gap-2 text-right">
+                        <div className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {formatDate(quote.created_at)}
+                        </div>
+                        <Button variant="ghost" size="sm">
+                          <ArrowLeft className="w-4 h-4 rotate-180" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6 text-neutral-500">
-                <FileText className="w-8 h-8 mx-auto mb-2" />
-                <p>Aucun devis associé</p>
+              <div className="text-center py-8 text-neutral-500">
+                <FileText className="w-12 h-12 mx-auto mb-3 text-neutral-300" />
+                <h4 className="font-medium mb-1">Aucun devis associé</h4>
+                <p className="text-sm">
+                  {opportunity.stage !== 'won' && opportunity.stage !== 'lost' 
+                    ? "Créez un premier devis pour cette opportunité"
+                    : "Aucun devis n'a été créé pour cette opportunité"
+                  }
+                </p>
               </div>
             )}
           </div>

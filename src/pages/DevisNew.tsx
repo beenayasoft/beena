@@ -6,6 +6,7 @@ import { QuoteStats, QuoteTabs, QuoteFilters, QuoteList, QuoteAlerts } from "@/c
 import { quotesApi, Quote, QuoteStats as QuoteStatsType, QuoteFilters as QuoteFiltersType, QuotesPaginationInfo } from "@/lib/api/quotes";
 import { PerformanceMonitor } from "@/components/common/PerformanceMonitor";
 import { toast } from "sonner";
+import { syncService } from "@/lib/services/syncService";
 
 export default function DevisNew() {
   const navigate = useNavigate();
@@ -197,8 +198,15 @@ export default function DevisNew() {
   const handleDeleteQuote = async (quote: Quote) => {
     if (confirm(`Êtes-vous sûr de vouloir supprimer le devis ${quote.number} ?`)) {
       try {
+        // Récupérer les infos du devis avant suppression pour la synchronisation
+        const quoteToDelete = await quotesApi.getQuote(quote.id);
+        
         await quotesApi.deleteQuote(quote.id);
         toast.success("Devis supprimé avec succès");
+        
+        // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier la suppression
+        syncService.notifyQuoteDeleted(quote.id, quoteToDelete.opportunity);
+        
         // Recharger avec les paramètres actuels ET les stats
         await Promise.all([
           loadQuotes(currentPage, searchQuery, activeTab),
@@ -215,6 +223,17 @@ export default function DevisNew() {
     try {
       await quotesApi.markAsSent(quote.id);
       toast.success("Devis envoyé avec succès");
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier le changement de statut
+      const updatedQuote = await quotesApi.getQuote(quote.id);
+      syncService.notifyQuoteStatusChanged(quote.id, 'sent', updatedQuote.opportunity, updatedQuote);
+      
+      if (updatedQuote.opportunity) {
+        toast.success("L'opportunité associée a été automatiquement passée en négociation", {
+          duration: 4000
+        });
+      }
+      
       // Recharger avec les paramètres actuels ET les stats
       await Promise.all([
         loadQuotes(currentPage, searchQuery, activeTab),
@@ -230,6 +249,11 @@ export default function DevisNew() {
     try {
       await quotesApi.markAsAccepted(quote.id);
       toast.success("Devis accepté avec succès");
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier l'acceptation
+      const updatedQuote = await quotesApi.getQuote(quote.id);
+      syncService.notifyQuoteStatusChanged(quote.id, 'accepted', updatedQuote.opportunity, updatedQuote);
+      
       // Recharger avec les paramètres actuels ET les stats
       await Promise.all([
         loadQuotes(currentPage, searchQuery, activeTab),
@@ -248,6 +272,9 @@ export default function DevisNew() {
       
       // Recharger les données du devis pour vérifier s'il est lié à une opportunité
       const updatedQuote = await quotesApi.getQuote(quote.id);
+      
+      // ✅ SYNCHRONISATION AUTOMATIQUE : Notifier le refus
+      syncService.notifyQuoteStatusChanged(quote.id, 'rejected', updatedQuote.opportunity, updatedQuote);
       
       // Recharger avec les paramètres actuels ET les stats
       await Promise.all([

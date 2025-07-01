@@ -9,6 +9,8 @@ import {
   FileText,
   CheckCircle,
   XCircle,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,7 @@ import { OpportunityKanbanColumn } from "@/components/opportunities/OpportunityK
 import { OpportunitySortableItem } from "@/components/opportunities/OpportunitySortableItem";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { OpportunityLossForm } from "@/components/opportunities/OpportunityLossForm";
+import { OpportunityList } from "@/components/opportunities/OpportunityList";
 import { Opportunity, OpportunityStatus, LossReason } from "@/lib/types/opportunity";
 // 🚀 MIGRATION: Import du service intelligent au lieu des mocks
 import { opportunityService } from "@/lib/services/opportunityService";
@@ -33,7 +36,6 @@ import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, PointerSensor,
 import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "@/hooks/use-toast";
 import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
-import { ServiceMetrics } from "@/components/opportunities/ServiceMetrics";
 
 // Définition des colonnes du Kanban
 const kanbanColumns = [
@@ -62,6 +64,9 @@ export default function Opportunities() {
   const [lossFormOpen, setLossFormOpen] = useState(false);
   const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | undefined>(undefined);
   const [opportunityToLose, setOpportunityToLose] = useState<Opportunity | undefined>(undefined);
+  
+  // 🚀 État pour le type de vue (kanban ou liste)
+  const [viewType, setViewType] = useState<'kanban' | 'list'>('kanban');
   
   // 🚀 Protection contre les double-clics et états incohérents
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -260,7 +265,7 @@ export default function Opportunities() {
       const statsData = await opportunityService.getStats();
       setStats(statsData);
       
-      // Afficher une notification
+      // Afficher une notification de succès
       toast({
         title: "Opportunité mise à jour",
         description: `L'opportunité a été déplacée vers "${
@@ -271,13 +276,43 @@ export default function Opportunities() {
           newStage === 'lost' ? 'Perdues' : 'En attente'
         }"`,
       });
+      
+      // Vérifier si un prospect a été converti en client
+      if (updatedOpportunity.tier_converted) {
+        toast({
+          title: "🎉 Prospect converti en client !",
+          description: updatedOpportunity.tier_converted_message || `${opportunity.tierName} est maintenant un client.`,
+          duration: 6000,
+        });
+      }
+      
     } catch (error) {
       console.error('Erreur lors de la mise à jour:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour l'opportunité",
-        variant: "destructive"
-      });
+      
+      // Gérer les erreurs de validation métier
+      if (error?.response?.status === 400 && error?.response?.data) {
+        const errorData = error.response.data;
+        toast({
+          title: "Transition interdite",
+          description: (
+            <div className="space-y-2">
+              <p className="font-medium">{errorData.detail}</p>
+              {errorData.suggestion && (
+                <p className="text-sm text-muted-foreground">{errorData.suggestion}</p>
+              )}
+            </div>
+          ),
+          variant: "destructive",
+          duration: 8000, // Plus long pour laisser le temps de lire
+        });
+      } else {
+        // Erreur générique
+        toast({
+          title: "Erreur",
+          description: "Impossible de mettre à jour l'opportunité",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -340,11 +375,50 @@ export default function Opportunities() {
       });
     } catch (error) {
       console.error('Erreur lors de la création du devis:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer le devis",
-        variant: "destructive"
-      });
+      
+      // Gérer les erreurs de validation métier
+      if (error?.response?.status === 400 && error?.response?.data) {
+        const errorData = error.response.data;
+        
+        // Message détaillé pour l'utilisateur
+        const detailMessage = errorData.detail || "Impossible de créer le devis";
+        const reasonMessage = errorData.reason || "";
+        const suggestionMessage = errorData.suggestion || "";
+        const allowedStages = errorData.allowed_stages || [];
+        
+        toast({
+          title: "🚫 Création de devis impossible",
+          description: (
+            <div className="space-y-3">
+              <p className="font-semibold text-sm">{detailMessage}</p>
+              {reasonMessage && (
+                <p className="text-sm">
+                  <span className="font-medium">Raison :</span> {reasonMessage}
+                </p>
+              )}
+              {suggestionMessage && (
+                <p className="text-sm text-blue-600">
+                  <span className="font-medium">💡 Suggestion :</span> {suggestionMessage}
+                </p>
+              )}
+              {allowedStages.length > 0 && (
+                <div className="text-xs bg-blue-50 p-2 rounded">
+                  <span className="font-medium">Statuts autorisés :</span> {allowedStages.join(', ')}
+                </div>
+              )}
+            </div>
+          ),
+          variant: "destructive",
+          duration: 10000, // Plus long pour laisser le temps de lire
+        });
+      } else {
+        // Erreur générique
+        toast({
+          title: "Erreur",
+          description: "Impossible de créer le devis",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -549,52 +623,96 @@ export default function Opportunities() {
       {/* Stats */}
       <OpportunityStats stats={stats} />
 
-      {/* Filters */}
-      <OpportunityFilters
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-
-      {/* Kanban Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex overflow-x-auto pb-6 gap-4">
-          {kanbanColumns.map((column) => (
-            <div key={column.id} className="flex-shrink-0 w-[300px] md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(20%-13px)]">
-              <OpportunityKanbanColumn
-                title={column.title}
-                stage={column.status}
-                opportunities={getOpportunitiesByStatus(column.status)}
-                count={getOpportunitiesByStatus(column.status).length}
-                onView={handleViewOpportunity}
-                onEdit={handleEditOpportunitySecure}
-                onDelete={handleDeleteOpportunity}
-                onStageChange={handleStageChange}
-                onCreateQuote={handleCreateQuote}
-                onMarkAsWon={handleMarkAsWon}
-                onMarkAsLost={handleMarkAsLostSecure}
-                onAddNew={handleAddNewSecure}
-                activeId={activeId}
-              />
-            </div>
-          ))}
-        </div>
+      {/* Filters and View Toggle */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+        <OpportunityFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
         
-        {/* DragOverlay pour afficher l'élément en cours de déplacement */}
-        {activeId && activeOpportunity ? (
-          <DragOverlay>
-            <OpportunityCard
-              opportunity={activeOpportunity}
-              isDragging={true}
-            />
-          </DragOverlay>
-        ) : null}
-      </DndContext>
+        {/* View Toggle */}
+        <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
+          <Button
+            variant={viewType === 'kanban' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-8 gap-2"
+            onClick={() => setViewType('kanban')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Kanban
+          </Button>
+          <Button
+            variant={viewType === 'list' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-8 gap-2"
+            onClick={() => setViewType('list')}
+          >
+            <List className="h-4 w-4" />
+            Liste
+          </Button>
+        </div>
+      </div>
+
+      {/* Content - Vue conditionnelle */}
+      {viewType === 'kanban' ? (
+        // Vue Kanban avec drag and drop
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex overflow-x-auto pb-6 gap-4">
+            {kanbanColumns.map((column) => (
+              <div key={column.id} className="flex-shrink-0 w-[300px] md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(20%-13px)]">
+                <OpportunityKanbanColumn
+                  title={column.title}
+                  stage={column.status}
+                  opportunities={getOpportunitiesByStatus(column.status)}
+                  count={getOpportunitiesByStatus(column.status).length}
+                  onView={handleViewOpportunity}
+                  onEdit={handleEditOpportunitySecure}
+                  onDelete={handleDeleteOpportunity}
+                  onStageChange={handleStageChange}
+                  onCreateQuote={handleCreateQuote}
+                  onMarkAsWon={handleMarkAsWon}
+                  onMarkAsLost={handleMarkAsLostSecure}
+                  onAddNew={handleAddNewSecure}
+                  activeId={activeId}
+                />
+              </div>
+            ))}
+          </div>
+          
+          {/* DragOverlay pour afficher l'élément en cours de déplacement */}
+          {activeId && activeOpportunity ? (
+            <DragOverlay>
+              <OpportunityCard
+                opportunity={activeOpportunity}
+                isDragging={true}
+              />
+            </DragOverlay>
+          ) : null}
+        </DndContext>
+      ) : (
+        // Vue Liste
+        <div className="space-y-4">
+          <OpportunityList
+            opportunities={opportunities.filter(opp => 
+              opp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              (opp.tierName && opp.tierName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+              (opp.description && opp.description.toLowerCase().includes(searchQuery.toLowerCase()))
+            )}
+            onView={handleViewOpportunity}
+            onEdit={handleEditOpportunitySecure}
+            onDelete={handleDeleteOpportunity}
+            onCreateQuote={handleCreateQuote}
+            onMarkAsWon={handleMarkAsWon}
+            onMarkAsLost={handleMarkAsLostSecure}
+          />
+        </div>
+      )}
 
       {/* Opportunity Form Dialog */}
       <Dialog open={formDialogOpen} onOpenChange={handleFormDialogClose}>
@@ -623,9 +741,6 @@ export default function Opportunities() {
         onOpenChange={handleLossFormClose}
         onSubmit={handleConfirmLoss}
       />
-      
-      {/* 🚀 Service Intelligent Monitoring */}
-      <ServiceMetrics />
     </div>
   );
 }

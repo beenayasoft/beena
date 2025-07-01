@@ -33,6 +33,12 @@ export const opportunitiesApi = {
   getOpportunities: async (filters?: OpportunityFilters): Promise<Opportunity[]> => {
     try {
       const response = await apiClient.get('/opportunities/', { params: filters });
+      console.log('📊 Réponse API opportunités:', {
+        total: response.data.count || 'N/A',
+        returned: response.data.results?.length || response.data.length || 0,
+        structure: response.data.results ? 'paginée' : 'directe'
+      });
+      
       return response.data.results || response.data; // Support pagination
     } catch (error) {
       console.error('Error fetching opportunities:', error);

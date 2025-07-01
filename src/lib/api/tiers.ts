@@ -103,7 +103,7 @@ export type ContactCreateData = Omit<ContactData, 'id'>;
 export interface TierCreateData {
   nom: string;
   type: string;
-  flags: string[];
+  relation: string;
   siret: string;
   tva: string;
   is_deleted: boolean;

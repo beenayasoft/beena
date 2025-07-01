@@ -1,4 +1,31 @@
-import { Quote, QuoteStatus } from '../types/quote';
+// Import du type API pour référence uniquement
+export type { Quote as ApiQuote } from '../api/quotes';
+
+// Type pour les statuts de devis (union type pour les valeurs)
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'cancelled';
+
+// Type mock pour les devis (format legacy camelCase)
+export interface Quote {
+  id: string;
+  number: string;
+  status: QuoteStatus;
+  clientId?: string;
+  clientName?: string;
+  clientAddress?: string;
+  tier?: string; // Pour compatibilité API
+  issueDate?: string;
+  expiryDate?: string;
+  validityPeriod?: number;
+  items?: any[];
+  notes?: string;
+  termsAndConditions?: string;
+  totalHT: number;
+  totalVAT: number;
+  totalTTC: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
 
 // Données mockées pour les devis
 export const mockQuotes: Quote[] = [
@@ -23,9 +50,6 @@ export const mockQuotes: Quote[] = [
     clientId: '2',
     clientName: 'Jean Dupont',
     clientAddress: '15 Rue des Fleurs, 75001 Paris',
-    projectId: '1',
-    projectName: 'Rénovation appartement',
-    projectAddress: '15 Rue des Fleurs, 75001 Paris',
     issueDate: '2025-06-15',
     expiryDate: '2025-07-15',
     validityPeriod: 30,
@@ -183,9 +207,6 @@ export const mockQuotes: Quote[] = [
     clientId: '3',
     clientName: 'Marie Lambert',
     clientAddress: '8 Avenue des Roses, 69002 Lyon',
-    projectId: '2',
-    projectName: 'Villa moderne',
-    projectAddress: '8 Avenue des Roses, 69002 Lyon',
     issueDate: '2025-06-10',
     expiryDate: '2025-07-10',
     validityPeriod: 30,
@@ -305,9 +326,6 @@ export const mockQuotes: Quote[] = [
     clientId: '4',
     clientName: 'Pierre Martin',
     clientAddress: '25 Boulevard Central, 33000 Bordeaux',
-    projectId: '3',
-    projectName: 'Rénovation cuisine',
-    projectAddress: '25 Boulevard Central, 33000 Bordeaux',
     issueDate: '2025-06-08',
     expiryDate: '2025-07-08',
     validityPeriod: 30,
@@ -420,9 +438,6 @@ export const mockQuotes: Quote[] = [
     clientId: '5',
     clientName: 'Sophie Dubois',
     clientAddress: '42 Rue du Commerce, 44000 Nantes',
-    projectId: '4',
-    projectName: 'Extension maison',
-    projectAddress: '42 Rue du Commerce, 44000 Nantes',
     validityPeriod: 30,
     items: [
       {
@@ -458,6 +473,51 @@ export const mockQuotes: Quote[] = [
     totalTTC: 5400,
     createdAt: '2025-06-14T16:30:00Z',
     updatedAt: '2025-06-14T16:30:00Z',
+    createdBy: 'admin',
+  },
+  // 🎯 DEVIS POUR JESSE MPIGA (ajoutés pour résoudre le problème affiché)
+  {
+    id: '100',
+    number: 'DEV-2025-024',
+    status: 'draft',
+    clientId: 'jesse-mpiga-id', // ID qui correspond à Jesse MPIGA
+    clientName: 'Jesse MPIGA',
+    clientAddress: 'Adresse Jesse MPIGA',
+    projectName: 'Devis pour Carrelage grès cérame 30×30',
+    projectAddress: 'Chantier Jesse MPIGA',
+    issueDate: '2025-06-25',
+    expiryDate: '2025-07-25',
+    validityPeriod: 30,
+    items: [],
+    notes: 'Devis pour carrelage',
+    termsAndConditions: 'Conditions standard',
+    totalHT: 85.00,
+    totalVAT: 17.00,
+    totalTTC: 102.00,
+    createdAt: '2025-06-25T10:00:00Z',
+    updatedAt: '2025-06-25T10:00:00Z',
+    createdBy: 'admin',
+  },
+  {
+    id: '101',
+    number: 'DEV-2025-023',
+    status: 'draft',
+    clientId: 'jesse-mpiga-id', // même client
+    clientName: 'Jesse MPIGA',
+    clientAddress: 'Adresse Jesse MPIGA',
+    projectName: 'Devis pour Test opportunité MPIGA',
+    projectAddress: 'Chantier test MPIGA',
+    issueDate: '2025-06-25',
+    expiryDate: '2025-07-25',
+    validityPeriod: 30,
+    items: [],
+    notes: 'Devis test',
+    termsAndConditions: 'Conditions standard',
+    totalHT: 25.00,
+    totalVAT: 5.00,
+    totalTTC: 30.00,
+    createdAt: '2025-06-25T10:00:00Z',
+    updatedAt: '2025-06-25T10:00:00Z',
     createdBy: 'admin',
   },
 ];
@@ -527,4 +587,4 @@ export const getQuotesStats = () => {
     totalAmount,
     acceptanceRate,
   };
-}; 
+};

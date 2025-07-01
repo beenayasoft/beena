@@ -246,7 +246,7 @@ export function QuotePreview({
         </div>
 
         {/* Client and Project Info */}
-        {(appearanceSettings.showClientAddress || (appearanceSettings.showProjectInfo && quote.projectName)) && (
+        {appearanceSettings.showClientAddress && (
           <div className="p-8 border-b border-neutral-200">
             <div className="flex justify-between">
               {/* Client Info */}
@@ -264,20 +264,7 @@ export function QuotePreview({
                 </div>
               )}
 
-              {/* Project Info */}
-              {appearanceSettings.showProjectInfo && quote.projectName && (
-                <div className="space-y-2">
-                  <h2 className="text-lg font-semibold" style={{ color: appearanceSettings.primaryColor }}>Projet</h2>
-                  <div className="text-sm">
-                    <p className="font-medium">{quote.projectName}</p>
-                    {quote.projectAddress && (
-                      <div className="text-neutral-600 whitespace-pre-line">
-                        {quote.projectAddress}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+
             </div>
           </div>
         )}

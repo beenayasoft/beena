@@ -53,7 +53,7 @@ export function QuoteEditorHeader({
               )}
             </div>
             <p className="text-benaya-100 mt-1">
-              Client: {quote.clientName} {quote.projectName && `- Projet: ${quote.projectName}`}
+              Client: {quote.clientName} {quote.workSiteName && `- Chantier: ${quote.workSiteName}`}
             </p>
           </div>
         </div>

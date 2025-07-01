@@ -85,8 +85,8 @@ export default function Auth() {
           {/* Mobile Logo */}
           <div className="lg:hidden text-center">
             <div className="inline-flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
-                <img src="/logo.svg" alt="Beenaya logo" className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                <img src="/logo.svg" alt="Beenaya logo" className="w-10 h-10" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-benaya-900">Beenaya</h1>

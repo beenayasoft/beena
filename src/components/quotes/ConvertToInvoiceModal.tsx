@@ -27,7 +27,6 @@ interface ConvertToInvoiceModalProps {
     id: string;
     number: string;
     clientName: string;
-    projectName?: string;
     totalTTC: number | string; // Accepter les deux types pour plus de flexibilité
   };
   onConvert: (invoiceData: {
@@ -112,12 +111,7 @@ export function ConvertToInvoiceModal({
                 <span className="text-neutral-600 dark:text-neutral-400">Client:</span>
                 <span className="font-medium">{quote.clientName}</span>
               </div>
-              {quote.projectName && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-600 dark:text-neutral-400">Projet:</span>
-                  <span className="font-medium">{quote.projectName}</span>
-                </div>
-              )}
+
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600 dark:text-neutral-400">Montant TTC:</span>
                 <span className="font-semibold">{formatTotalTTC(quote.totalTTC).toFixed(2)} MAD</span>

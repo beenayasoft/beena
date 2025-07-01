@@ -49,14 +49,29 @@ export interface Opportunity {
   lossDescription?: string;
   // Liens avec d'autres objets
   quoteIds?: string[];
+  // ✅ AJOUT : Données détaillées des devis
+  quotes?: Array<{
+    id: string;
+    number: string;
+    status: string;
+    status_display: string;
+    total_ttc: number;
+    created_at: string;
+    issue_date?: string;
+  }>;
+  quotes_count?: number;
   projectId?: string;
+  // Conversion automatique prospect → client
+  tier_converted?: boolean;
+  tier_converted_message?: string;
 }
 
 // Interface pour les filtres de recherche d'opportunités
 export interface OpportunityFilters {
   query?: string;
   stage?: OpportunityStatus[];
-  tierId?: string;
+  tierId?: string;  // Format frontend (legacy)
+  tier?: string;    // Format backend API Django
   minAmount?: number;
   maxAmount?: number;
   probability?: number;

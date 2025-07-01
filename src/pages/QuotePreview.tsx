@@ -56,8 +56,7 @@ export default function QuotePreviewPage() {
           clientName: quoteData.client_name,
           clientAddress: quoteData.client_address,
           projectId: "", // TODO: ajouter project_id dans l'API
-          projectName: quoteData.project_name,
-          projectAddress: quoteData.project_address,
+          
           issueDate: quoteData.issue_date,
           expiryDate: quoteData.expiry_date,
           validityPeriod: quoteData.validity_period,

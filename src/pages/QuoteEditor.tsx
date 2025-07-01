@@ -90,8 +90,7 @@ export default function QuoteEditor() {
   // 🎯 STATE UNIFIÉ - TOUT VIA EditorQuoteItem
   const [quoteData, setQuoteData] = useState({
     tier: "",
-    project_name: "",
-    project_address: "",
+
     validity_period: 30,
     notes: "",
     conditions: "Acompte de 30% à la signature. Solde à la fin des travaux.",
@@ -129,8 +128,7 @@ export default function QuoteEditor() {
           // Mapper vers le format unifié
           setQuoteData({
             tier: quoteDetail.tier,
-            project_name: quoteDetail.project_name,
-            project_address: quoteDetail.project_address || "",
+            
             validity_period: quoteDetail.validity_period,
             notes: quoteDetail.notes || "",
             conditions: quoteDetail.conditions || "",
@@ -306,8 +304,7 @@ export default function QuoteEditor() {
       const bulkData: BulkQuoteData = {
         quote: {
           tier: quoteData.tier,
-          project_name: quoteData.project_name,
-          project_address: quoteData.project_address,
+          
           validity_period: quoteData.validity_period,
           notes: quoteData.notes,
           conditions: quoteData.conditions,
@@ -461,7 +458,7 @@ export default function QuoteEditor() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold">
-                  {isNewQuote ? "Nouveau devis" : quoteData.project_name}
+                  {isNewQuote ? "Nouveau devis" : `Devis ${quoteData.number || ""}`}
                 </h1>
                 {!isNewQuote && (
                   <Badge className="benaya-badge-neutral gap-1 bg-white/20 text-white border-white/30">
@@ -510,7 +507,7 @@ export default function QuoteEditor() {
           <TabsContent value="details" className="space-y-6 mt-6">
             {/* Client and Project */}
             <div className="benaya-card">
-              <h3 className="font-medium text-lg mb-4">Informations client et projet</h3>
+              <h3 className="font-medium text-lg mb-4">Informations client et opportunité</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -589,28 +586,7 @@ export default function QuoteEditor() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="project">Projet</Label>
-                    <Input
-                      id="project"
-                      value={quoteData.project_name}
-                      onChange={(e) => setQuoteData(prev => ({ ...prev, project_name: e.target.value }))}
-                      className="benaya-input"
-                    />
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="projectAddress">Adresse du projet</Label>
-                    <Textarea
-                      id="projectAddress"
-                      value={quoteData.project_address}
-                      onChange={(e) => setQuoteData(prev => ({ ...prev, project_address: e.target.value }))}
-                      className="benaya-input resize-none"
-                      rows={3}
-                    />
-                  </div>
                 </div>
               </div>
             </div>
