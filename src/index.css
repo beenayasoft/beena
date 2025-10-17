@@ -6,47 +6,47 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
+    --foreground: 210 20% 25%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+    --card-foreground: 210 20% 25%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 198 58% 18%; /* #1B333F */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 9%;
+    --popover-foreground: 210 20% 25%;
+    --primary: 45 100% 51%;
+    --primary-foreground: 210 20% 25%;
+    --secondary: 210 20% 35%;
+    --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 210 20% 25%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 198 58% 18%;
+    --ring: 45 100% 51%;
     --radius: 0.75rem;
   }
 
   .dark {
-    --background: 0 0% 5%;
+    --background: 210 20% 8%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 8%;
+    --card: 210 20% 10%;
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 8%;
+    --popover: 210 20% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 198 58% 18%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 15%;
+    --primary: 45 100% 51%;
+    --primary-foreground: 210 20% 25%;
+    --secondary: 210 20% 20%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 64%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 210 20% 25%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 198 58% 18%;
+    --border: 210 20% 20%;
+    --input: 210 20% 20%;
+    --ring: 45 100% 51%;
   }
 }
 
@@ -89,11 +89,11 @@
   }
 
   .benaya-button-primary {
-    @apply bg-benaya-900 text-white hover:bg-benaya-800 shadow-benaya hover:shadow-benaya-lg transition-all duration-200;
+    @apply bg-benaya-400 text-teal-900 hover:bg-benaya-500 shadow-yellow hover:shadow-yellow-lg transition-all duration-200 font-semibold;
   }
 
   .benaya-button-secondary {
-    @apply bg-white dark:bg-neutral-800 text-benaya-900 dark:text-white border border-benaya-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700;
+    @apply bg-teal-900 text-white hover:bg-teal-800 border border-teal-700 shadow-benaya hover:shadow-benaya-lg transition-all duration-200;
   }
 
   .benaya-input {
@@ -106,11 +106,11 @@
   }
 
   .nav-item-active {
-    @apply bg-benaya-900 text-white shadow-benaya;
+    @apply bg-gradient-to-r from-benaya-400 to-benaya-500 text-teal-900 shadow-yellow font-semibold;
   }
 
   .nav-item-inactive {
-    @apply text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-benaya-900 dark:hover:text-white;
+    @apply text-neutral-700 dark:text-neutral-300 hover:bg-benaya-100 dark:hover:bg-teal-800/50 hover:text-teal-900 dark:hover:text-benaya-400;
   }
 
   /* Badge Styles */
@@ -119,7 +119,7 @@
   }
 
   .benaya-badge-primary {
-    @apply bg-benaya-100 dark:bg-benaya-900/30 text-benaya-900 dark:text-benaya-200 border border-benaya-200 dark:border-benaya-700;
+    @apply bg-benaya-100 dark:bg-benaya-400/20 text-teal-900 dark:text-benaya-300 border border-benaya-300 dark:border-benaya-600;
   }
 
   .benaya-badge-success {
@@ -169,16 +169,24 @@
   }
 
   .benaya-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply bg-benaya-400 dark:bg-benaya-600;
+    @apply bg-benaya-500 dark:bg-benaya-400;
   }
 
   /* Gradients */
   .benaya-gradient {
-    @apply bg-gradient-to-r from-benaya-900 to-benaya-700;
+    @apply bg-gradient-to-r from-teal-900 to-teal-800;
   }
 
   .benaya-gradient-soft {
-    @apply bg-gradient-to-r from-benaya-50 to-benaya-100 dark:from-benaya-900/20 dark:to-benaya-800/20;
+    @apply bg-gradient-to-r from-benaya-200 to-benaya-300 dark:from-teal-900/30 dark:to-teal-800/30;
+  }
+
+  .benaya-gradient-yellow {
+    @apply bg-gradient-to-r from-benaya-400 to-benaya-500;
+  }
+
+  .benaya-gradient-mixed {
+    @apply bg-gradient-to-r from-teal-900 via-teal-700 to-benaya-400;
   }
 }
 

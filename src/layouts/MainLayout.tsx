@@ -9,19 +9,14 @@ interface MainLayoutProps {
 
 export function MainLayout({ className }: MainLayoutProps) {
   return (
-    <div className={cn("min-h-screen bg-white dark:bg-neutral-950", className)}>
-      {/* Main Layout */}
+    <div className={cn("min-h-screen bg-gradient-to-br from-benaya-50 via-white to-teal-50 dark:from-teal-950 dark:via-neutral-950 dark:to-teal-900", className)}>
       <div className="flex h-screen">
-        {/* Sidebar */}
         <SimpleSidebar />
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
           <SimpleHeader />
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-y-auto bg-neutral-50 dark:bg-neutral-900">
+          <main className="flex-1 overflow-y-auto bg-gradient-to-br from-benaya-50/50 via-neutral-50 to-teal-50/50 dark:from-teal-900/30 dark:via-neutral-900 dark:to-teal-950/30">
             <div className="h-full">
               <Outlet />
             </div>

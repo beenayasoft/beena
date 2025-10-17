@@ -18,12 +18,11 @@ export function Sidebar() {
         isCollapsed ? "w-16" : "w-72",
       )}
     >
-      {/* Sidebar Glass Container */}
       <nav
         className={cn(
-          "h-full backdrop-blur-xl bg-white/70 dark:bg-slate-900/70",
-          "border-r border-white/20 dark:border-slate-700/50",
-          "shadow-2xl shadow-blue-500/10 dark:shadow-blue-500/5",
+          "h-full backdrop-blur-xl bg-white/80 dark:bg-teal-950/80",
+          "border-r border-benaya-400/20 dark:border-teal-700/30",
+          "shadow-2xl shadow-benaya/10 dark:shadow-benaya/5",
           "relative z-10",
         )}
       >
@@ -34,9 +33,10 @@ export function Sidebar() {
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
             "absolute -right-3 top-8 z-20 h-6 w-6 rounded-full",
-            "bg-white/90 dark:bg-slate-800/90 border border-white/20 dark:border-slate-700/50",
-            "shadow-lg hover:shadow-xl transition-all duration-200",
-            "backdrop-blur-sm",
+            "bg-benaya-400 hover:bg-benaya-500 dark:bg-teal-800/90 dark:hover:bg-teal-700",
+            "border border-benaya-500/30 dark:border-teal-600/50",
+            "shadow-yellow hover:shadow-yellow-lg transition-all duration-200",
+            "backdrop-blur-sm text-teal-900 dark:text-benaya-300",
           )}
         >
           {isCollapsed ? (
